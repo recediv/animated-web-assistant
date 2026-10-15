@@ -391,6 +391,62 @@ export const PUSH_CLIPS = {
   'push-right': { count: 12, fps: 8, end: 'hold' },
 };
 
+// These drawings share the optional page-push sheet. Their playback is driven
+// by the approach path, so a ball cannot spin while its position is stopped.
+export const ROLL_CLIPS = {
+  curl: { count: 8, fps: 16, end: 'hold' },
+  roll: { count: 16, fps: 16, end: 'hold' },
+  'unroll-left': { count: 8, fps: 16, end: 'hold' },
+  'unroll-right': { count: 8, fps: 16, end: 'hold' },
+};
+
+function curledBody(tuck) {
+  const mix = (from,to) => round(from+(to-from)*tuck);
+  const point = (x,y,bx,by) => `${mix(x,bx)} ${mix(y,by)}`;
+  const pose = {...poseFor('idle',0),leftArm:-105*tuck,rightArm:105*tuck,
+    earLeft:135*tuck,earRight:-135*tuck,tail:-135*tuck,eyes:1-tuck,joy:.35};
+  const visible = round(Math.max(0,1-tuck*1.25));
+  // The head lowers into the belly while the pear-shaped back rounds out.
+  // Keep the floor at y=176 instead of scaling the complete standing drawing.
+  const outline = `M${point(96,61,96,65)} C${point(72,56,76,65)} ${point(53,67,53,76)} ${point(52,87,46,96)} Q${point(51,100,40,109)} ${point(55,107,41,120)} C${point(37.7,120,41,141)} ${point(32.2,143,55,161)} ${point(47.6,160,74,171)} C${point(63,178,87,177)} ${point(127.9,178,112,177)} ${point(144.4,159,128,165)} C${point(160.9,141,144,152)} ${point(156.5,120,153,132)} ${point(137,106,151,112)} Q${point(143,87,150,90)} ${point(134,73,134,78)} Q${point(121,59,116,65)} ${point(96,61,96,65)}Z`;
+  return `<g data-character="mohlik" data-view="curled" fill="url(#mohlik-fur)" stroke="${ink}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
+    <defs><clipPath id="mohlik-tucking-face"><path d="M20 0H174V${round(119-24*tuck)}Q96 ${round(134-28*tuck)} 20 ${round(119-24*tuck)}Z"/></clipPath></defs>
+    ${tuck < .8 ? leafTail(pose,'mohlik') : ''}
+    ${tuck < .8 ? `<g transform="translate(0 ${round(-12*tuck)})">${foot('left',pose,'mohlik')}${foot('right',pose,'mohlik')}</g>` : ''}
+    <g transform="translate(0 ${round(25*tuck)})">${ears(pose,'mohlik')}</g>
+    <path data-part="curled-silhouette" d="${outline}"/>
+    <g opacity="${visible}" transform="translate(0 ${round(21*tuck)})">
+      <path d="M59 120 Q96 104 134 120 Q151 144 130 163 Q100 177 67 163 Q44 144 59 120Z" fill="${cream}" stroke="none"/>
+    </g>
+    <g clip-path="url(#mohlik-tucking-face)"><g transform="translate(0 ${round(34*tuck)}) rotate(${round(12*tuck)} 96 99)"><g opacity="${visible}">${crown('mohlik')}</g>${face(pose)}</g></g>
+    ${tuck < .8 ? `${mohlikArm('left',pose)}${mohlikArm('right',pose)}` : ''}
+    <g data-part="folded-leaves" opacity="${round(tuck*tuck)}">
+      <path d="M66 84 Q72 67 97 67 Q101 86 82 94 Q72 95 66 84Z" fill="url(#mohlik-leaf)"/>
+      <path d="M70 84 Q80 77 92 73" fill="none" stroke="#bad697" stroke-width="1.5"/>
+      <path d="M110 80 C141 91 147 125 125 144 Q110 155 94 143 Q126 148 131 121 Q135 98 110 80Z" fill="${cream}" stroke="none" opacity=".65"/>
+      <path d="M67 112 Q60 129 78 139 Q94 147 111 135" fill="none" stroke="#92b17a" stroke-width="1.5"/>
+      <path data-part="wrapped-leaf-tail" d="M62 149 Q100 166 146 124 Q145 158 116 171 Q81 177 62 149Z" fill="url(#mohlik-leaf)"/>
+      <path d="M68 152 Q111 170 139 137 M105 161 L107 150 M121 154 L132 155" fill="none" stroke="#bad697" stroke-width="1.5"/>
+    </g>
+  </g>`;
+}
+
+export function renderRollFrame(name, frame = 0) {
+  const clip = ROLL_CLIPS[name];
+  if (!clip || !Number.isInteger(frame) || frame < 0 || frame >= clip.count) throw new Error(`Unknown page-roll frame: ${name}/${frame}`);
+  if (name === 'curl') {
+    if (frame === 0) return renderFrame();
+    return wrap(curledBody([0,.04,.16,.38,.65,.84,.96,1][frame]));
+  }
+  if (name === 'roll') return wrap(`<g transform="rotate(${frame*360/clip.count} 96 120)">${curledBody(1)}</g>`);
+  if (frame < 4) return wrap(curledBody([1,.91,.66,.32][frame]));
+  const push = name === 'unroll-left' ? 'push-left' : 'push-right';
+  if (frame >= 5) return renderPushFrame(push,7-frame);
+  const pose = {...poseForLook(push),turn:.55,headTilt:2,leftArm:-25,rightArm:25,joy:.35};
+  const profile = mohlikProfileBody(pose);
+  return wrap(name === 'unroll-left' ? `<g transform="translate(192 0) scale(-1 1)">${profile}</g>` : profile);
+}
+
 export function renderPushFrame(name = 'push-right', frame = 0) {
   if (!(name in PUSH_CLIPS) || !Number.isInteger(frame) || frame < 0 || frame >= 12) throw new Error(`Unknown page-push frame: ${name}/${frame}`);
   const pose = {...poseForLook(name)};

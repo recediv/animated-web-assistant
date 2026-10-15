@@ -807,6 +807,74 @@
         55,
         55
       ]
+    },
+    "curl": {
+      "frames": [
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+      ],
+      "fps": 16,
+      "end": "hold",
+      "sheet": "push"
+    },
+    "roll": {
+      "frames": [
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ],
+      "fps": 16,
+      "end": "hold",
+      "sheet": "push"
+    },
+    "unroll-left": {
+      "frames": [
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55
+      ],
+      "fps": 16,
+      "end": "hold",
+      "sheet": "push"
+    },
+    "unroll-right": {
+      "frames": [
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63
+      ],
+      "fps": 16,
+      "end": "hold",
+      "sheet": "push"
     }
   },
   "poses": {
@@ -845,10 +913,10 @@
     },
     "push": {
       "file": "push.webp",
-      "width": 768,
-      "height": 1152,
-      "columns": 4,
-      "rows": 6
+      "width": 1536,
+      "height": 1536,
+      "columns": 8,
+      "rows": 8
     },
     "guitar": {
       "file": "guitar.webp",

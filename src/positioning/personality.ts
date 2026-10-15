@@ -14,8 +14,9 @@ export type MotionPhase =
 export interface MotionMetadata {
   facing?: -1 | 1;
   arrival?: ArrivalKind;
-  activity?: 'walk' | 'hide' | 'look' | 'head-look' | 'climb' | 'grip';
+  activity?: 'walk' | 'hide' | 'look' | 'head-look' | 'climb' | 'grip' | 'curl' | 'roll' | 'uncurl';
   durationMs?: number;
+  progress?: number;
 }
 export interface MotionOptions {
   headOnly?: boolean;
@@ -64,6 +65,7 @@ interface Stage {
   speed?: number;
   facing?: -1 | 1;
   hold?: boolean;
+  sample?: { from: number; to: number };
 }
 interface Route {
   stages: Stage[];
@@ -112,7 +114,7 @@ export class PersonalityMotion {
   constructor(
     private launcher: HTMLButtonElement,
     private onMoving: (phase: MotionPhase, metadata?: MotionMetadata) => void,
-    private onPosition: (offset: Readonly<PersonalityOffset>) => void = () => {},
+    private onPosition: (offset: Readonly<PersonalityOffset>, metadata?: MotionMetadata) => void = () => {},
     private random: () => number = Math.random,
   ) {
     this.originalTransform = launcher.style.transform;
@@ -146,6 +148,14 @@ export class PersonalityMotion {
     return left >= this.viewport!.left - .5 && left + this.size <= this.viewport!.left + this.viewport!.width + .5;
   }
 
+  needsPageRoll(side: 'left' | 'right', viewport = this.viewport!): boolean {
+    if (!this.valid()) return false;
+    const supported = this.recoveryStages(this.current).at(-1)?.to ?? this.current;
+    const left = this.placement!.launcherLeft + supported.x;
+    const gap = side === 'left' ? left - viewport.left : viewport.left + viewport.width - left - this.size;
+    return gap > this.size * 2;
+  }
+
   /** Settle when the approach ends or is cancelled. */
   approachPagePush(side: 'left' | 'right', options: { settleToGround?: boolean; pageViewport?: PersonalityViewport } = {}): Promise<void> {
     if (!this.canPagePush) {
@@ -155,11 +165,27 @@ export class PersonalityMotion {
     const from = { ...this.current };
     // Keep descent, landing and approach in one cancellable route.
     const recovery = options.settleToGround ? this.recoveryStages(from) : [];
-    const walkingFrom = { ...(recovery.at(-1)?.to ?? from) };
+    const rollingFrom = { ...(recovery.at(-1)?.to ?? from) };
     const to = this.pagePushPoint(side, 0, options.pageViewport);
-    const distance = Math.abs(to.x - walkingFrom.x);
-    return this.start([...recovery, { phase: 'page-push', from: walkingFrom, to, groundTo: true, bounds: 'free', curve: 'linear',
-      duration: clamp(distance / 700 * 1000, 170, 850), activity: 'walk' }]);
+    const viewport = options.pageViewport ?? this.viewport!;
+    if (!this.needsPageRoll(side, viewport)) {
+      return this.start([...recovery, { phase: 'page-push', from: rollingFrom, to, groundTo: true,
+        bounds: 'free', curve: 'linear', duration: clamp(Math.abs(to.x - rollingFrom.x) / 700 * 1000, 170, 850), activity: 'walk' }]);
+    }
+    // Roll all the way to the original offscreen paw-contact point, then
+    // unfold in place so the page push starts without another translation.
+    const distance = Math.abs(to.x - rollingFrom.x);
+    const turns = Math.max(1, Math.round(distance / (this.size * Math.PI * 110 / 192)));
+    const direction = to.x < rollingFrom.x ? -1 : 1;
+    return this.start([...recovery,
+      { phase: 'page-push', from: rollingFrom, to: rollingFrom, duration: 320, activity: 'curl', hold: true,
+        bounds: 'free', facing: 1, sample: { from: 0, to: 1 } },
+      { phase: 'page-push', from: rollingFrom, to, groundTo: true, bounds: 'free',
+        duration: clamp(distance / (this.size * 10) * 1000, 180, 1100), activity: 'roll', facing: 1,
+        sample: { from: 0, to: direction * turns } },
+      { phase: 'page-push', from: to, to, groundTo: true, bounds: 'free', duration: 320,
+        activity: 'uncurl', hold: true, facing: 1, sample: { from: 0, to: 1 } },
+    ]);
   }
 
   /** Follow progress from the page's animation loop. */
@@ -282,6 +308,11 @@ export class PersonalityMotion {
           elapsed -= route.stages[index]!.duration;
         const stages = route.stages.slice(route.phaseIndex);
         const active = stages[0]!;
+        if (active.sample) {
+          const progress = clamp(elapsed / active.duration, 0, 1);
+          const weight = active.curve === 'linear' ? progress : ease(progress);
+          active.sample.from += (active.sample.to - active.sample.from) * weight;
+        }
         const remaining = Math.max(1, active.duration - elapsed);
         this.current =
           active.bounds === 'free'
@@ -856,6 +887,7 @@ export class PersonalityMotion {
             point,
             stage.preserveOutside === true || (stage.bounds === 'peek' && !atEnd),
           ),
+      progress,
     );
     if (atEnd) {
       this.route = null;
@@ -865,7 +897,7 @@ export class PersonalityMotion {
     } else if (this.route === route) this.schedule(route, stage, elapsed);
   };
   private schedule(route: Route, stage: Stage, elapsed: number): void {
-    if (!stage.peak && stage.from.x === stage.to.x && stage.from.y === stage.to.y) {
+    if (!stage.sample && !stage.peak && stage.from.x === stage.to.x && stage.from.y === stage.to.y) {
       this.timer = setTimeout(
         () => {
           this.timer = null;
@@ -885,6 +917,7 @@ export class PersonalityMotion {
           : {}),
       ...(stage.arrival ? { arrival: stage.arrival } : {}),
       ...(stage.activity ? { activity: stage.activity, durationMs: stage.duration } : {}),
+      ...(stage.sample ? { progress: stage.sample.from } : {}),
     };
     if (metadata.facing) this.facing = metadata.facing;
     this.notify(stage.phase, metadata);
@@ -959,7 +992,7 @@ export class PersonalityMotion {
         : bounded.y;
     return { x: bounded.x, y: Math.min(bounded.y, Math.max(this.bounds().top, fullCanvasBottom)) };
   }
-  private apply(point: Point): void {
+  private apply(point: Point, stageProgress?: number): void {
     this.current = { ...point };
     const bounds = this.bounds();
     this.outside = point.x < bounds.left || point.x > bounds.right;
@@ -970,7 +1003,19 @@ export class PersonalityMotion {
         ? this.originalTransform
         : ('translate3d(' + x + 'px, ' + y + 'px, 0) ' + this.originalTransform).trim();
     try {
-      this.onPosition({ ...this.current });
+      const route = this.route;
+      const stage = route?.stages[route.phaseIndex];
+      if (route && stage?.sample) {
+        let progress = stageProgress;
+        if (progress === undefined) {
+          let elapsed = performance.now() - route.startedAt;
+          for (let index = 0; index < route.phaseIndex; index++) elapsed -= route.stages[index]!.duration;
+          progress = clamp(elapsed / stage.duration, 0, 1);
+        }
+        const weight = stage.curve === 'linear' ? progress : ease(progress);
+        this.onPosition({ ...this.current }, { activity: stage.activity,
+          progress: stage.sample.from + (stage.sample.to - stage.sample.from) * weight });
+      } else this.onPosition({ ...this.current });
     } catch {
       /* Speech positioning cannot break a finite path. */
     }

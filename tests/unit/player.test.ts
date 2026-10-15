@@ -727,6 +727,25 @@ describe('bounded complete atlas loading', () => {
 });
 
 describe('pointer look poses', () => {
+  it('samples a prepared path forwards or backwards without loading or owning a frame loop', async () => {
+    servedManifest.atlases = { ...servedManifest.atlases, push: { width: 768, height: 768, columns: 4, rows: 4, file: 'push.webp' } };
+    servedManifest.clips.roll = { frames: Array.from({ length: 16 }, (_, frame) => frame), fps: 16, end: 'hold', sheet: 'push' };
+    const { player, canvas, onEnd } = setup();
+    expect(player.sample('roll', .25, true)).toBe(false);
+    expect(fetchManifest).not.toHaveBeenCalled(); expect(FakeImage.created).toHaveLength(0);
+    expect(await player.prepareClip('roll')).toBe(true);
+    expect(player.sample('roll', .25, true)).toBe(true); expect(canvas.dataset.frame).toBe('4');
+    expect(player.sample('roll', -.25, true)).toBe(true); expect(canvas.dataset.frame).toBe('12');
+    expect(player.sample('roll', 1, true)).toBe(true); expect(canvas.dataset.frame).toBe('0');
+    expect(player.sample('roll', 1)).toBe(true); expect(canvas.dataset.frame).toBe('15');
+    expect(player.sample('roll', NaN)).toBe(false);
+    expect(canvas.dataset.sheet).toBe('push'); expect(frameCallbacks.size).toBe(0);
+    expect(onEnd).not.toHaveBeenCalled(); expect(FakeImage.created).toHaveLength(2);
+    player.play('wave'); await ready();
+    expect(player.sample('roll', .5)).toBe(false);
+    player.pause(); expect(player.sample('roll', .5)).toBe(true);
+    player.setEnabled(false); expect(player.sample('roll', .5)).toBe(false);
+  });
   it.each([4, 8, 12])('warms a %i-frame push sheet without a frame loop, preserves the brace and then draws finite footsteps', async (count) => {
     servedManifest.poses = { ...servedManifest.poses!, 'push-right': 93 };
     servedManifest.atlases = { ...servedManifest.atlases, push: { width: 768, height: count * 96, columns: 4, rows: count / 2, file: 'push.webp' } };

@@ -36,6 +36,7 @@ interface RenderReport {
   intentionalOutsideSamples: number;
   intentionalPagePushSamples: number;
   curiousPeekSamples: number;
+  approachAnimations: string[];
   firstFailure: RenderSample | null;
   recent: RenderSample[];
 }
@@ -114,6 +115,7 @@ async function startProbe(page: Page): Promise<void> {
     const sheets = new Set<string>();
     const sizes = new Set<string>();
     const pageKeys = new Set<string>();
+    const approachAnimations = new Set<string>();
     const report: RenderReport = {
       samples: 0,
       sheets: [],
@@ -125,6 +127,7 @@ async function startProbe(page: Page): Promise<void> {
       intentionalOutsideSamples: 0,
       intentionalPagePushSamples: 0,
       curiousPeekSamples: 0,
+      approachAnimations: [],
       firstFailure: null,
       recent: [],
     };
@@ -158,17 +161,23 @@ async function startProbe(page: Page): Promise<void> {
       const pushContact = rect.left + rect.width * (pushSide === 'left' ? 170 : 22) / 192;
       const panelEdge = pushPanel?.getBoundingClientRect();
       const approaching = pagePush?.dataset.stage === 'prepare' &&
-        sheet === 'personality' && host.dataset.animation === 'walk';
+        ((sheet === 'personality' && host.dataset.animation === 'walk') || (sheet === 'push' &&
+          ['curl', 'roll', 'unroll-left', 'unroll-right'].includes(host.dataset.animation ?? '')));
       const pushing = sheet === 'push' &&
         host.dataset.animation === (pushSide === 'left' ? 'push-right' : 'push-left') &&
         (pagePush?.dataset.stage === 'prepare' || pagePush?.dataset.companion === 'true');
-      // The final approach frame and push pose can extend past the contact edge.
+      const pushBoundary = pushSide === 'left' ? viewport.left : viewport.left + viewport.width;
+      const contactGap = (pushContact - pushBoundary) * (pushSide === 'left' ? 1 : -1);
+      // The tucked shell clears the edge just before the outstretched paw's
+      // contact point. Keep checking its pixels throughout that final travel.
+      const rollingExit = approaching && sheet === 'push' && host.dataset.animation === 'roll' &&
+        contactGap >= -1 && contactGap <= rect.width * 24 / 192 + 1;
       const intentionalPushOutside =
         motion === 'page-push' && (approaching || pushing) && !!panelEdge &&
         ['left', 'right'].includes(pushSide ?? '') &&
         rect.bottom > viewport.top && rect.top < viewport.top + viewport.height &&
-        Math.abs(pushContact - (pushSide === 'left' ? viewport.left : viewport.left + viewport.width)) <= 1 &&
-        Math.abs(pushContact - (pushSide === 'left' ? panelEdge.left : panelEdge.right)) <= 1;
+        (Math.abs(contactGap) <= 1 || rollingExit) &&
+        Math.abs(pushBoundary - (pushSide === 'left' ? panelEdge.left : panelEdge.right)) <= 1;
       const intentionalOutside = intentionalPeekOutside || intentionalPushOutside;
       let reason: string | null = null;
       let alphaPixels = 0;
@@ -297,6 +306,7 @@ async function startProbe(page: Page): Promise<void> {
         ...(pagePush ? { pushContact, pushPanelEdge: panelEdge ? { left: panelEdge.left, right: panelEdge.right } : undefined } : {}),
       };
       report.samples++;
+      if (motion === 'page-push' && approaching) approachAnimations.add(host.dataset.animation!);
       if (previousLayer) report.blendedSamples++;
       sheets.add(sheet);
       sizes.add(`${canvas.width}x${canvas.height}`);
@@ -329,6 +339,7 @@ async function startProbe(page: Page): Promise<void> {
         report.sheets = [...sheets];
         report.sizes = [...sizes];
         report.pageKeys = [...pageKeys];
+        report.approachAnimations = [...approachAnimations];
         return report;
       },
     };
@@ -453,6 +464,11 @@ for (const profile of [
       );
       expect(report.sheets).toEqual(expect.arrayContaining(['main', 'personality']));
       expect(report.blendedSamples, 'mixed transition pixels were compared with both layers').toBeGreaterThan(0);
+      expect(report.approachAnimations.length).toBeGreaterThan(0);
+      if (report.approachAnimations.includes('roll')) {
+        expect(report.approachAnimations).toContain('curl');
+        expect(report.approachAnimations.some((animation) => animation.startsWith('unroll-'))).toBe(true);
+      } else expect(report.approachAnimations).toEqual(['walk']);
       expect(
         report.intentionalOutsideSamples,
         'complete intended hiding still retains nonempty reference-matching canvas pixels',

@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import sharp from 'sharp';
-import { renderHeadPeekFrame } from '../../assets/source/mohlik.mjs';
+import { renderHeadPeekFrame, renderRollFrame } from '../../assets/source/mohlik.mjs';
 import { PersonalityMotion } from '../../src/positioning/personality';
 
 let time = 0;
@@ -8,8 +8,21 @@ let sequence = 0;
 let frames: Map<number, FrameRequestCallback>;
 const drivers: PersonalityMotion[] = [];
 const paintedHeads = new Map<string, { left: number; right: number }>();
+const paintedRolls = new Map<number, { left: number; right: number }>();
 
 beforeAll(async () => {
+  for (const size of [96, 64]) {
+    let left = size, right = -1;
+    for (let frame = 0; frame < 16; frame++) {
+      const { data, info } = await sharp(Buffer.from(renderRollFrame('roll', frame)))
+        .resize(size, size).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++)
+        if (data[(y * size + x) * info.channels + 3]! > 8) {
+          left = Math.min(left, x); right = Math.max(right, x);
+        }
+    }
+    paintedRolls.set(size, { left, right: right + 1 });
+  }
   for (const size of [96, 64]) for (const side of ['left', 'right']) for (const headFrame of [0, 1] as const) {
     // The SVG already rotates the accepted head; the player only mirrors the
     // right-edge view. Measure actual painted pixels, not the transparent cell.
@@ -49,12 +62,13 @@ function frame(at: number) {
 function create(size = 96, side: 'left' | 'right' = 'right', random: () => number = () => 1) {
   const button = document.createElement('button');
   const moving = vi.fn();
-  const motion = new PersonalityMotion(button, moving, undefined, random);
+  const positioned = vi.fn();
+  const motion = new PersonalityMotion(button, moving, positioned, random);
   const left = side === 'right' ? 1000 - size - 24 : 24;
   motion.updateBase({ launcherLeft: left, launcherTop: 700 - size * 11 / 12 }, { left: 0, top: 0, width: 1000, height: 700 }, size, side);
   frame(0);
   drivers.push(motion);
-  return { button, moving, motion };
+  return { button, moving, positioned, motion };
 }
 
 beforeEach(() => {
@@ -74,21 +88,99 @@ afterEach(() => {
 });
 
 describe('finite character movement', () => {
+  it.each([[96, 'left'], [96, 'right'], [64, 'left'], [64, 'right']] as const)('rolls the whole %spx shell off the %s edge, preserves rotation on rebase and unfolds at page contact', async (size, side) => {
+    const { motion, moving, positioned } = create(size);
+    const base = 1000 - size - 24;
+    if (side === 'right') motion.place({ x: 24 - base, y: 0 });
+    const initial = motion.offset;
+    const preparing = motion.approachPagePush(side);
+    frame(160); expect(motion.offset).toEqual(initial);
+    expect(positioned.mock.calls.at(-1)![1].activity).toBe('curl');
+    expect(positioned.mock.calls.at(-1)![1].progress).toBeCloseTo(.5);
+    frame(320);
+    const rollMs = moving.mock.calls.at(-1)![1]!.durationMs!;
+    const start = motion.offset.x;
+    frame(320 + rollMs * .25);
+    const quarter = { x: motion.offset.x, turns: positioned.mock.calls.at(-1)![1].progress };
+    frame(320 + rollMs * .5);
+    const half = { ...motion.offset, turns: positioned.mock.calls.at(-1)![1].progress };
+    expect(Math.sign(half.turns)).toBe(side === 'left' ? -1 : 1);
+    expect(quarter.turns / (quarter.x - start)).toBeCloseTo(half.turns / (half.x - start));
+    motion.updateBase({ launcherLeft: base - 10, launcherTop: 700 - size * 11 / 12 },
+      { left: 0, top: 0, width: 1000, height: 700 }, size, 'right');
+    expect(base - 10 + motion.offset.x).toBeCloseTo(base + half.x);
+    expect(positioned.mock.calls.at(-1)![1].progress).toBeCloseTo(half.turns);
+    frame(320 + rollMs * .6);
+    expect(Math.abs(positioned.mock.calls.at(-1)![1].progress)).toBeGreaterThan(Math.abs(half.turns));
+    frame(320 + rollMs);
+    expect(moving.mock.calls.at(-1)![1].activity).toBe('uncurl');
+    const contact = motion.offset;
+    const absoluteLeft = base - 10 + contact.x;
+    const boundary = side === 'left' ? 0 : 1000;
+    expect(absoluteLeft + size * (side === 'left' ? 170 : 22) / 192).toBeCloseTo(boundary);
+    const painted = paintedRolls.get(size)!;
+    if (side === 'left') expect(absoluteLeft + painted.right).toBeLessThan(boundary);
+    else expect(absoluteLeft + painted.left).toBeGreaterThan(boundary);
+    frame(480 + rollMs); expect(motion.offset).toEqual(contact);
+    frame(640 + rollMs); await preparing;
+    expect(motion.offset).toEqual(contact);
+    motion.pagePushProgress(side, 0); expect(motion.offset).toEqual(contact);
+    expect(frames.size).toBe(0); expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it.each([64, 96])('keeps the old walk within two %spx character widths and rolls only beyond that boundary', async (size) => {
+    const { motion, moving } = create(size);
+    const base = 1000 - size - 24;
+    for (const side of ['left', 'right'] as const) for (const extra of [0, 1]) {
+      const gap = size * 2 + extra;
+      const left = side === 'left' ? gap : 1000 - size - gap;
+      motion.place({ x: left - base, y: 0 }); moving.mockClear();
+      expect(motion.needsPageRoll(side)).toBe(extra > 0);
+      const startedAt = time;
+      const preparing = motion.approachPagePush(side);
+      const metadata = moving.mock.calls.at(-1)![1]!;
+      expect(metadata.activity).toBe(extra ? 'curl' : 'walk');
+      if (!extra) {
+        frame(startedAt + metadata.durationMs / 2);
+        const boundary = side === 'left' ? 0 : 1000;
+        const contact = size * (side === 'left' ? 170 : 22) / 192;
+        expect(base + motion.offset.x).toBeCloseTo((left + boundary - contact) / 2);
+        frame(startedAt + metadata.durationMs + 1); await preparing;
+        expect(moving.mock.calls.some(([, data]) => ['curl', 'roll', 'uncurl'].includes(data?.activity))).toBe(false);
+      } else { motion.cancel(); await preparing; }
+      expect(frames.size).toBe(0);
+    }
+  });
+
+  it.each([160, 700, 1450])('cancels folding, rolling or unfolding at %sms without a late frame', async (at) => {
+    const { motion } = create();
+    const preparing = motion.approachPagePush('left'); frame(at);
+    const stopped = motion.offset; motion.cancel(); await preparing;
+    frame(5000); expect(motion.offset).toEqual(stopped);
+    expect(frames.size).toBe(0); expect(vi.getTimerCount()).toBe(0);
+  });
   it.each([96, 64])('reaches paw contact without jumping when page movement starts at %ipx', async (size) => {
     const { motion, moving } = create(size);
     const initial = motion.offset;
     const preparing = motion.approachPagePush('left');
     expect(motion.offset).toEqual(initial); expect(frames.size).toBe(1);
     const base = 1000 - size - 24;
+    frame(160); expect(motion.offset).toEqual(initial);
+    expect(moving).toHaveBeenLastCalledWith('page-push', expect.objectContaining({ activity: 'curl' }));
+    frame(320);
+    const rollingMs = moving.mock.calls.at(-1)![1]!.durationMs!;
     let previousX = initial.x;
-    for (const at of [425, 750, 800, 825, 849, 850]) {
+    for (const at of [.25, .5, .75, 1].map((progress) => 320 + rollingMs * progress)) {
       frame(at);
       expect(motion.offset.x).toBeLessThan(previousX);
       previousX = motion.offset.x;
     }
+    frame(321 + rollingMs);
+    expect(moving).toHaveBeenLastCalledWith('page-push', expect.objectContaining({ activity: 'uncurl' }));
+    frame(641 + rollingMs);
     await preparing;
     expect(base + motion.offset.x + size * 170 / 192).toBeCloseTo(0); expect(motion.offset.y).toBe(0);
-    expect(moving).toHaveBeenCalledWith('page-push', expect.objectContaining({ facing: -1, activity: 'walk', durationMs: 850 }));
+    expect(moving.mock.calls.filter(([phase]) => phase === 'page-push').map(([, metadata]) => metadata.activity)).toEqual(['curl', 'roll', 'uncurl']);
     expect(frames.size).toBe(0);
     const leftContact = motion.offset;
     motion.pagePushProgress('left', 0); expect(motion.offset).toEqual(leftContact);
@@ -97,7 +189,8 @@ describe('finite character movement', () => {
     expect(frames.size).toBe(0);
     motion.finishPagePush(); expect(base + motion.offset.x).toBeCloseTo(1000 - size - 4);
     const right = motion.approachPagePush('right');
-    frame(1019); expect(motion.moving).toBe(true); frame(1020); await right;
+    const rightStartedAt = time;
+    frame(rightStartedAt + 169); expect(motion.moving).toBe(true); frame(rightStartedAt + 171); await right;
     expect(base + motion.offset.x + size * 22 / 192).toBeCloseTo(1000);
     const rightContact = motion.offset;
     motion.pagePushProgress('right', 0); expect(motion.offset).toEqual(rightContact);
@@ -111,7 +204,7 @@ describe('finite character movement', () => {
     const { motion } = create(64);
     motion.updateBase({ launcherLeft: 800, launcherTop: 530 }, { left: 31, top: 17, width: 900, height: 600 }, 64, 'right');
     frame(0); motion.place({ x: 0, y: 617 - 64 * 11 / 12 - 530 });
-    const prepared = motion.approachPagePush('right'); frame(850); await prepared;
+    const prepared = motion.approachPagePush('right'); frame(2000); await prepared;
     for (const progress of [0, .1, .5, .9, 1]) {
       motion.pagePushProgress('right', progress);
       expect(800 + motion.offset.x + 64 * 22 / 192).toBeCloseTo(31 + (1 - progress) * 900);
@@ -148,9 +241,9 @@ describe('finite character movement', () => {
     frame(fallMs + 500);
     expect(motion.offset.x).toBeCloseTo(from.x); expect(frames.size).toBe(1);
     frame(fallMs + 925); expect(motion.offset.x).toBeLessThan(from.x); expect(motion.offset.y).toBe(0);
-    frame(fallMs + 1350); await preparing;
+    frame(fallMs + 2250); await preparing;
     expect(base + motion.offset.x + size * 170 / 192).toBeCloseTo(0);
-    expect(moving.mock.calls.map(([phase]) => phase)).toEqual(['fall', 'land', 'page-push', null]);
+    expect(moving.mock.calls.map(([phase]) => phase)).toEqual(['fall', 'land', 'page-push', 'page-push', 'page-push', null]);
     expect(frames.size).toBe(0); expect(vi.getTimerCount()).toBe(0);
   });
   it('cancels page preparation during the descent without snapping to either floor or starting the later approach', async () => {

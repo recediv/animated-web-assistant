@@ -60,6 +60,12 @@ const drawings: Drawing[] = [
       svg: mohlik.renderPushFrame(name, frame),
     })),
   ),
+  ...(Object.keys(mohlik.ROLL_CLIPS) as mohlik.MohlikRollClip[]).flatMap((name) =>
+    Array.from({ length: mohlik.ROLL_CLIPS[name].count }, (_, frame) => ({
+      name: `roll/${name}/${frame}`,
+      svg: mohlik.renderRollFrame(name, frame),
+    })),
+  ),
 ];
 let samples: Sample[];
 
@@ -134,7 +140,7 @@ describe('Mohlik Tropnik vector artwork', () => {
       'push-left',
       'push-right',
     ]);
-    expect(drawings).toHaveLength(234);
+    expect(drawings).toHaveLength(274);
     expect(mohlik.PERSONALITY_FRAMES).toHaveLength(40);
     for (let frame = 0; frame < 34; frame++)
       expect(mohlik.personalityPose(frame)).toEqual(sharedMotion.personalityPose(frame));
@@ -244,6 +250,25 @@ describe('Mohlik Tropnik vector artwork', () => {
       expect(new Set(frames.map((sample) => sample.hash)).size).toBe(
         mohlik.EXTRA_CLIPS[clip].count,
       );
+    }
+  });
+
+  it('folds into a full-size leaf ball and unfolds into the exact existing brace on both sides', () => {
+    expect(mohlik.renderRollFrame('curl', 0)).toBe(mohlik.renderFrame());
+    const ball = samples.find((sample) => sample.name === 'roll/curl/7')!;
+    for (const name of ['roll', 'unroll-left', 'unroll-right'] as const) {
+      expect(samples.find((sample) => sample.name === `roll/${name}/0`)!.hash).toBe(ball.hash);
+    }
+    for (const side of ['left', 'right'] as const) {
+      expect(mohlik.renderRollFrame(`unroll-${side}`, 7)).toBe(mohlik.renderPushFrame(`push-${side}`, 0));
+    }
+    const rolling = samples.filter((sample) => sample.name.startsWith('roll/roll/'));
+    expect(new Set(rolling.map((sample) => sample.hash)).size).toBe(16);
+    for (const sample of rolling) {
+      expect(sample.right - sample.left).toBeGreaterThan(105);
+      expect(sample.right - sample.left).toBeLessThan(118);
+      expect(sample.bottom).toBeGreaterThanOrEqual(173);
+      expect(sample.bottom).toBeLessThanOrEqual(179);
     }
   });
 

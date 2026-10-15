@@ -36,7 +36,7 @@ vi.mock('../../src/ui/element', () => ({
 vi.mock('../../src/animation/player', () => ({
   SpritePlayer: class {
     constructor(_canvas: HTMLCanvasElement, _poster: HTMLImageElement, _assets: unknown, onEnd: (result: PlaybackResult) => void) { animationCalls.end.mockImplementation(onEnd); }
-    setEnabled = vi.fn(); resize = vi.fn(); play = animationCalls.play; stop = animationCalls.stop; pause = animationCalls.pause; look = animationCalls.look; prepareClip = animationCalls.prepare; setFacing = animationCalls.facing; destroy = vi.fn();
+    setEnabled = vi.fn(); resize = vi.fn(); play = animationCalls.play; stop = animationCalls.stop; pause = animationCalls.pause; look = animationCalls.look; prepareClip = animationCalls.prepare; sample = vi.fn(() => true); setFacing = animationCalls.facing; destroy = vi.fn();
   },
 }));
 vi.mock('../../src/positioning/viewport', () => ({
@@ -298,7 +298,7 @@ describe('initialization and lifecycle boundaries', () => {
     expect(view.launcher.hidden).toBe(true);
     const preparing = instance.preparePagePush!('left');
     expect(view.launcher.hidden).toBe(false);
-    await flushPageReadiness(); frames.draw(1500, true);
+    await flushPageReadiness(); frames.draw(2500, true);
     expect(await preparing).toBe(true);
     instance.finishPagePush!();
     expect(view.dataset.motion).toBe(''); expect(frames.pending).toBe(0);
@@ -324,9 +324,25 @@ describe('initialization and lifecycle boundaries', () => {
     expect(view.dataset.motion).toBe(''); expect(frames.pending).toBe(0);
     loaded(true); await flushPageReadiness();
     expect(view.dataset.motion).toBe('page-push');
-    frames.draw(8250); expect(await preparing).toBe(true);
+    frames.draw(9400); expect(await preparing).toBe(true);
     expect(880 + view.setMotionOffset.mock.calls.at(-1)![0].x + 85).toBeCloseTo(0);
     instance.finishPagePush!(); expect(frames.pending).toBe(0);
+  });
+
+  it('keeps the character visible and releases navigation when optional roll artwork is unavailable', async () => {
+    const frames = manualFrames();
+    vi.spyOn(Math, 'random').mockReturnValue(1);
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ ...config, behavior: 'lively' }) })));
+    instance = await init({ configUrl: '/demo/assistant.config.json', adapter: createDemoAdapter() });
+    frames.draw(5000);
+    const view = vi.mocked(createAssistantElement).mock.results.at(-1)!.value;
+    const resting = view.setMotionOffset.mock.calls.at(-1)![0];
+    const side = 880 + resting.x > 500 ? 'left' : 'right';
+    animationCalls.prepare.mockResolvedValueOnce(true).mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    expect(await instance.preparePagePush!(side)).toBe(false);
+    expect(view.setMotionOffset.mock.calls.at(-1)![0]).toEqual(resting);
+    expect(view.dataset.motion).toBe(''); expect(frames.pending).toBe(0);
+    frames.draw(5100); expect(view.setMotionOffset.mock.calls.at(-1)![0]).toEqual(resting);
   });
 
   it.each(['finish', 'off', 'hide', 'blocker', 'resize', 'pagehide', 'destroy'] as const)('cancels cold push readiness on %s without a late offscreen approach', async (reason) => {
@@ -372,9 +388,9 @@ describe('initialization and lifecycle boundaries', () => {
     await flushPageReadiness();
     expect(view.dataset.motion).toBe('page-push');
     frames.draw(5050); await Promise.resolve(); expect(finished).toBe(false);
-    frames.draw(5850); expect(await preparing).toBe(true);
+    frames.draw(7000); expect(await preparing).toBe(true);
     expect(animationCalls.look).toHaveBeenLastCalledWith('push-right');
-    expect(animationCalls.prepare).toHaveBeenLastCalledWith('push-right');
+    expect(animationCalls.prepare).toHaveBeenCalledWith('push-right');
     expect(animationCalls.facing).toHaveBeenLastCalledWith(1);
     const braced = view.setMotionOffset.mock.calls.at(-1)![0];
     expect(880 + braced.x + 85).toBeCloseTo(0);
@@ -385,13 +401,13 @@ describe('initialization and lifecycle boundaries', () => {
     expect(animationCalls.play).toHaveBeenLastCalledWith('push-right', 2);
     let point = view.setMotionOffset.mock.calls.at(-1)![0];
     expect(880 + point.x + 85).toBeCloseTo(500); expect(580 + point.y + 88).toBeCloseTo(700);
-    adapter.setPage('catalog', '/catalog'); frames.draw(5850);
+    adapter.setPage('catalog', '/catalog'); frames.draw(7000);
     expect(view.dataset.motion).toBe('page-push');
     instance.setPagePushProgress!(1); instance.finishPagePush!();
     point = view.setMotionOffset.mock.calls.at(-1)![0];
     expect(880 + point.x).toBeCloseTo(900); expect(view.dataset.motion).toBe('');
     expect(frames.pending).toBe(0);
-    const walking = instance.perform!('stroll'); frames.draw(8250); await walking;
+    const walking = instance.perform!('stroll'); frames.draw(9400); await walking;
     expect(view.dataset.motion).toBe(''); expect(frames.pending).toBe(0);
   });
 
@@ -404,7 +420,7 @@ describe('initialization and lifecycle boundaries', () => {
     frames.draw(5000);
     const view = vi.mocked(createAssistantElement).mock.results.at(-1)!.value;
     const preparing = instance.preparePagePush!('left');
-    await flushPageReadiness(); frames.draw(5850);
+    await flushPageReadiness(); frames.draw(7000);
     expect(await preparing).toBe(true);
     instance.setPagePushProgress!(.2);
     const contact = view.setMotionOffset.mock.calls.at(-1)![0];
@@ -435,7 +451,7 @@ describe('initialization and lifecycle boundaries', () => {
     instance = await init({ configUrl: '/demo/assistant.config.json', adapter: createDemoAdapter() });
     frames.draw(5000);
     const preparing = instance.preparePagePush!('left');
-    await flushPageReadiness(); frames.draw(5850);
+    await flushPageReadiness(); frames.draw(7000);
     expect(await preparing).toBe(true);
     instance.setPagePushProgress!(.2);
     if (change === 'scale') vi.stubGlobal('visualViewport', { scale: 1.25 });
@@ -480,7 +496,7 @@ describe('initialization and lifecycle boundaries', () => {
     instance = await init({ configUrl: '/demo/assistant.config.json', adapter: createDemoAdapter() }); frames.draw(5000);
     let resolvePose!: (ready: boolean) => void;
     animationCalls.look.mockImplementationOnce(() => new Promise<boolean>((resolve) => { resolvePose = resolve; }));
-    const preparing = instance.preparePagePush!('left'); await flushPageReadiness(); frames.draw(5850);
+    const preparing = instance.preparePagePush!('left'); await flushPageReadiness(); frames.draw(7000);
     await Promise.resolve(); expect(resolvePose).toBeTypeOf('function');
     instance.finishPagePush!(); expect(await preparing).toBe(false);
     const view = vi.mocked(createAssistantElement).mock.results.at(-1)!.value;
@@ -499,7 +515,7 @@ describe('initialization and lifecycle boundaries', () => {
     await instance.setMotion!('system');
     const flipping = instance.perform!('flip'); frames.draw(6250);
     const preparing = instance.preparePagePush!('right'); await flushPageReadiness();
-    frames.draw(8500, true); expect(await preparing).toBe(true);
+    frames.draw(10000, true); expect(await preparing).toBe(true);
     await flipping;
     instance.finishPagePush!(); expect(frames.pending).toBe(0);
   });
@@ -524,7 +540,7 @@ describe('initialization and lifecycle boundaries', () => {
       frames.draw(5400); expect(view.dataset.motion).toBe('land');
       expect(animationCalls.play.mock.calls.some(([clip]) => clip === 'parachute')).toBe(false);
     }
-    frames.draw(6800, true); expect(await preparing).toBe(true);
+    frames.draw(7800, true); expect(await preparing).toBe(true);
     expect(580 + view.setMotionOffset.mock.calls.at(-1)![0].y + 88).toBe(700);
     instance.setPagePushProgress!(.35);
     const beforeCommit = view.setMotionOffset.mock.calls.at(-1)![0];
@@ -538,7 +554,7 @@ describe('initialization and lifecycle boundaries', () => {
     const recovering = view.setMotionOffset.mock.calls.at(-1)![0];
     expect(580 + recovering.y + 88).toBe(700);
     expect(view.dataset.motion).toBe(toReserved ? 'climb' : '');
-    frames.draw(7800);
+    frames.draw(8800);
     expect(580 + view.setMotionOffset.mock.calls.at(-1)![0].y + 88).toBe(700 - toReserved);
     expect(view.dataset.motion).toBe(''); expect(frames.pending).toBe(0);
   });

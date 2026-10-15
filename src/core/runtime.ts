@@ -59,7 +59,7 @@ export class AssistantRuntime implements AssistantInstance {
   private cursor = { x: 0, y: 0 };
   private paletteLook: { x: number; y: number } | null = null;
   private greetingHeld = false;
-  private pagePush: { side: 'left' | 'right'; ready: boolean; stepsReady: boolean; pushing: boolean; reserved: number; pageKey: string; committed: boolean; viewport: Viewport;
+  private pagePush: { side: 'left' | 'right'; ready: boolean; pushing: boolean; reserved: number; pageKey: string; committed: boolean; viewport: Viewport;
     windowWidth: number; windowHeight: number; viewportScale: number;
     cancelled: Promise<boolean>; cancel(): void } | null = null;
   private lastGeometry: { viewport: Viewport; reserved: number; size: number } | null = null;
@@ -116,7 +116,10 @@ export class AssistantRuntime implements AssistantInstance {
       if (this.paletteLook) this.lookAt(this.paletteLook);
     }, graphics, () => this.view.updateHitRegion());
     this.motion = new PersonalityMotion(this.view.launcher, (phase, metadata) => this.motionStage(phase, metadata),
-      (offset) => this.updateSpeechPosition(offset));
+      (offset, metadata) => {
+        if (metadata) this.drawPageApproach(metadata);
+        this.updateSpeechPosition(offset);
+      });
     this.player.setEnabled(this.preferences.get().motion === 'system' && !this.reducedQuery.matches);
     this.viewport = new ViewportObserver(() => this.position());
     this.pageStyles.rel = 'stylesheet'; this.pageStyles.href = config.assets.cssUrl;
@@ -351,7 +354,7 @@ export class AssistantRuntime implements AssistantInstance {
     this.render();
     let cancel = () => {};
     const cancelled = new Promise<boolean>((resolve) => { cancel = () => resolve(false); });
-    const session = { side, ready: false, stepsReady: false, pushing: false,
+    const session = { side, ready: false, pushing: false,
       reserved: 0,
       pageKey: this.controller.snapshot.context?.pageKey ?? '', committed: false,
       viewport: visibleViewport(),
@@ -359,11 +362,15 @@ export class AssistantRuntime implements AssistantInstance {
       viewportScale: window.visualViewport?.scale ?? 1, cancelled, cancel };
     this.pagePush = session;
     if (!this.controller.beginPhysical(true)) { this.finishPagePush(); return false; }
-    // Load push artwork before approaching the edge.
+    // The fold, roll, unfolding and original push live on one lazy sheet.
     const push = side === 'left' ? 'push-right' : 'push-left';
-    const steps = await Promise.race([this.player.prepareClip?.(push), cancelled]);
+    const unroll = side === 'left' ? 'unroll-right' : 'unroll-left';
+    const approachClips: MotionClipName[] = this.motion.needsPageRoll(side, session.viewport)
+      ? [push, 'curl', 'roll', unroll] : [push];
+    const steps = await Promise.race([Promise.all(approachClips.map((clip) =>
+      this.player.prepareClip(clip))).then((ready) => ready.every(Boolean)), cancelled]);
     if (this.pagePush !== session || this.destroyed || !this.controller.available || !this.controller.motionAllowed) return false;
-    session.stepsReady = steps === true;
+    if (!steps) { this.finishPagePush(); return false; }
     this.position();
     this.motionResult = this.motion.approachPagePush(side, { settleToGround: true, pageViewport: session.viewport });
     await this.motionResult;
@@ -385,12 +392,10 @@ export class AssistantRuntime implements AssistantInstance {
     if (this.destroyed || !this.controller.available || !this.controller.motionAllowed) { this.finishPagePush(); return; }
     if (!this.pagePush.pushing) {
       this.pagePush.pushing = true;
-      if (this.pagePush.stepsReady) {
-        const clip = this.pagePush.side === 'left' ? 'push-right' : 'push-left';
-        this.controller.physicalStage(clip);
-        this.player.setFacing(1);
-        this.player.play(clip, PAGE_PUSH_STEP_REPETITIONS);
-      }
+      const clip = this.pagePush.side === 'left' ? 'push-right' : 'push-left';
+      this.controller.physicalStage(clip);
+      this.player.setFacing(1);
+      this.player.play(clip, PAGE_PUSH_STEP_REPETITIONS);
     }
     this.motion.pagePushProgress(this.pagePush.side, progress, this.pagePush.viewport);
   }
@@ -668,7 +673,7 @@ export class AssistantRuntime implements AssistantInstance {
     if (!phase) {
       if (this.replacingMotion) return;
       if (this.pagePush) {
-        this.player.stop();
+        this.player.pause();
         this.controller.physicalStage('static');
         this.view.dataset.motion = 'page-push';
         this.view.launcher.dataset.motion = 'page-push';
@@ -681,6 +686,14 @@ export class AssistantRuntime implements AssistantInstance {
       this.controller.endPhysical();
       if (this.paletteLook) this.lookAt(this.paletteLook);
       if (appeared && !this.compact && this.variation.chance(.4)) this.controller.physicalSpeech('welcome', 3500);
+      return;
+    }
+    if (activity === 'curl' || activity === 'roll' || activity === 'uncurl') {
+      this.player.pause();
+      this.player.setFacing(1);
+      const clip = this.pageApproachClip(activity);
+      this.controller.physicalStage(clip);
+      this.drawPageApproach({ activity, progress: metadata?.progress ?? 0 });
       return;
     }
     if (metadata?.activity === 'head-look') {
@@ -718,6 +731,18 @@ export class AssistantRuntime implements AssistantInstance {
   private continueWalking(): void {
     const remaining = Math.max(1, this.motionWalkUntil - performance.now());
     this.player.play('walk', Math.max(1, Math.min(8, Math.ceil(remaining / 600))));
+  }
+
+  private pageApproachClip(activity: 'curl' | 'roll' | 'uncurl'): MotionClipName {
+    if (activity === 'uncurl') return this.pagePush?.side === 'left' ? 'unroll-right' : 'unroll-left';
+    return activity;
+  }
+
+  private drawPageApproach(metadata: MotionMetadata): void {
+    const activity = metadata.activity;
+    if (!this.pagePush || metadata.progress === undefined ||
+        (activity !== 'curl' && activity !== 'roll' && activity !== 'uncurl')) return;
+    this.player.sample(this.pageApproachClip(activity), metadata.progress, activity === 'roll');
   }
 
   private setupDragging(options: { signal: AbortSignal }): void {

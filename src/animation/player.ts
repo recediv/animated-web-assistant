@@ -150,6 +150,23 @@ export class SpritePlayer {
     } catch { return false; }
   }
 
+  /** Draw an already prepared clip from an external finite path, without a RAF. */
+  sample(clipName: MotionClipName, progress: number, loop = false): boolean {
+    if (!this.enabled || this.destroyed || this.failed || this.playing || !this.context || !Number.isFinite(progress)) return false;
+    const clip = this.manifest?.clips[clipName];
+    if (!clip) return false;
+    let sheet = clip.sheet ?? 'main';
+    let frames = clip.frames;
+    if (sheet !== 'main' && !this.sheetImages.has(sheet)) {
+      if (!clip.fallbackFrames) return false;
+      sheet = 'main'; frames = clip.fallbackFrames;
+    }
+    const position = loop ? ((progress % 1) + 1) % 1 : Math.max(0, Math.min(1, progress));
+    const frame = frames[Math.min(frames.length - 1, Math.floor(position * frames.length))]!;
+    this.draw(frame, sheet);
+    return this.lastFrame === frame && this.lastSheet === sheet;
+  }
+
   stop(): void {
     this.cancel();
     if (this.manifest && this.image) this.draw(this.manifest.neutralFrame);

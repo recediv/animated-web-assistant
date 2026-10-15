@@ -1223,6 +1223,8 @@ async function run(origin) {
         const browserFloor = quietViewport.offsetTop + quietViewport.height;
         const nextRoute = side === 'left' ? '/catalog' : '/product/electric-sun';
         const before = launcher.getBoundingClientRect();
+        const rollApproach = (side === 'left' ? before.left - quietViewport.offsetLeft :
+          quietViewport.offsetLeft + quietViewport.width - before.right) > before.width * 2;
         const preparationPlayback = playbackTrace.length;
         const preparationDraws = drawCalls.length;
         const preparing = demo.assistant.preparePagePush(side);
@@ -1254,6 +1256,14 @@ async function run(origin) {
           }
         }
         const brace = side === 'left' ? 'push-right' : 'push-left';
+        const approachDraws = drawCalls.slice(preparationDraws);
+        for (const clip of rollApproach ? ['curl', 'roll', side === 'left' ? 'unroll-right' : 'unroll-left'] : ['walk']) {
+          const descriptor = atlasManifest.clips[clip];
+          const frames = approachDraws.filter((call) => call.sheet === descriptor.sheet && descriptor.frames.includes(frameOf(call))).map(frameOf);
+          assert.ok(new Set(frames).size >= (rollApproach ? 3 : 2), `${clip} actually draws multiple approach frames`);
+        }
+        assert.equal(playbackTrace.slice(preparationPlayback).some((entry) => entry.clip === 'walk'), !rollApproach,
+          'only a nearby page edge uses the old walking approach');
         const tip = (side === 'left' ? 170 : 22) / 192 * launcher.getBoundingClientRect().width;
         const boundary = (progress) => (side === 'left' ? progress : 1 - progress) * window.innerWidth;
         assert.equal(Number(shadow.querySelector('canvas').dataset.frame), atlasManifest.poses[brace]);

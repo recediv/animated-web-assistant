@@ -1,6 +1,6 @@
 export const CLIPS = ['idle', 'wave', 'happy', 'sleep', 'wake'] as const;
 export type ClipName = (typeof CLIPS)[number];
-export const EXTRA_CLIPS = ['walk', 'wiggle', 'climb', 'held', 'fall', 'parachute', 'land', 'wink', 'flip', 'head-peek', 'sit', 'scratch', 'ears', 'stretch', 'nose', 'guitar', 'push-left', 'push-right'] as const;
+export const EXTRA_CLIPS = ['walk', 'wiggle', 'climb', 'held', 'fall', 'parachute', 'land', 'wink', 'flip', 'head-peek', 'sit', 'scratch', 'ears', 'stretch', 'nose', 'guitar', 'push-left', 'push-right', 'curl', 'roll', 'unroll-left', 'unroll-right'] as const;
 export type MotionClipName = ClipName | (typeof EXTRA_CLIPS)[number];
 export type AnimationState = MotionClipName | 'static';
 export const POSES = ['left', 'right', 'up', 'down', 'curious', 'sympathetic'] as const;
@@ -66,7 +66,7 @@ export function validateManifest(value: unknown): value is AtlasManifest {
     if (clip === undefined) return true;
     if (!record(clip)) return false;
     const frameIndex = clipIndex(clip);
-    const holds = ['held', 'fall', 'parachute', 'head-peek', 'push-left', 'push-right'].includes(name);
+    const holds = ['held', 'fall', 'parachute', 'head-peek', 'push-left', 'push-right', 'curl', 'roll', 'unroll-left', 'unroll-right'].includes(name);
     const uniqueMinimum = ['wink', 'climb', 'head-peek'].includes(name) ? 2 : 3;
     const maximumFrames = name === 'guitar' ? 96 : 32;
     const endValid = name === 'climb' ? clip.end === 'hold' || clip.end === 'neutral' : clip.end === (holds ? 'hold' : 'neutral');

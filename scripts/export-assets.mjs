@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import sharp from 'sharp';
-import { CLIPS, LOOK_POSES, EXTRA_CLIPS, PERSONALITY_FRAMES, PERSONALITY_CLIPS, CALM_CLIPS, PUSH_CLIPS, personalityPose, renderFrame, renderPose, renderExtraFrame, renderPersonalityFrame, renderHeadPeekFrame, renderCalmFrame, renderPushFrame } from '../assets/source/mohlik.mjs';
+import { CLIPS, LOOK_POSES, EXTRA_CLIPS, PERSONALITY_FRAMES, PERSONALITY_CLIPS, CALM_CLIPS, PUSH_CLIPS, ROLL_CLIPS, personalityPose, renderFrame, renderPose, renderExtraFrame, renderPersonalityFrame, renderHeadPeekFrame, renderCalmFrame, renderPushFrame, renderRollFrame } from '../assets/source/mohlik.mjs';
 import { exportBookCovers } from '../assets/source/book-covers.mjs';
 import { GUITAR_CLIP, renderGuitarFrame } from '../assets/source/guitar.mjs';
 
@@ -30,7 +30,7 @@ const manifest = {
     reactions: { file: 'reactions.webp', width: 1152, height: 1536, columns: 6, rows: 8 },
     personality: { file: 'personality.webp', width: 1152, height: 1344, columns: 6, rows: 7 },
     leisure: { file: 'leisure.webp', width: 1536, height: 1536, columns: 8, rows: 8 },
-    push: { file: 'push.webp', width: 768, height: 1152, columns: 4, rows: 6 },
+    push: { file: 'push.webp', width: 1536, height: 1536, columns: 8, rows: 8 },
     guitar: { file: 'guitar.webp', width: 1920, height: 1536, columns: 10, rows: 8 },
   },
 };
@@ -195,6 +195,19 @@ for (const [name, definition] of Object.entries(PUSH_CLIPS)) {
   manifest.clips[name] = { frames, fps: definition.fps, end: definition.end, sheet: 'push', fallbackFrames: Array(definition.count).fill(manifest.poses[name]) };
 }
 if (sheetIndices.push !== 24) throw new Error('Expected twenty-four push cells');
+for (const [name, definition] of Object.entries(ROLL_CLIPS)) {
+  const frames = [];
+  const hashes = new Set();
+  for (let frame = 0; frame < definition.count; frame++) {
+    const exported = await exportCell(renderRollFrame(name,frame), name, frame, 'push');
+    frames.push(exported.index);
+    hashes.add(exported.hash);
+  }
+  if (hashes.size !== definition.count) throw new Error(`Roll clip ${name} has duplicate artwork`);
+  uniqueFrames[name] = hashes.size;
+  manifest.clips[name] = { frames, fps: definition.fps, end: definition.end, sheet: 'push' };
+}
+if (sheetIndices.push !== 64) throw new Error('Expected sixty-four push/roll cells');
 for (const [clip, definition] of Object.entries(CLIPS)) {
   if (definition.end === 'neutral' && renderFrame(clip, definition.count - 1) !== renderFrame()) {
     throw new Error(`${clip} does not return to neutral pose`);

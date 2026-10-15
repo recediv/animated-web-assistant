@@ -34,6 +34,9 @@ export function renderFrame(clip?: MotionClip, frame?: number): string;
 export function renderPose(name: MohlikLook): string;
 export type MohlikPushClip = 'push-left' | 'push-right';
 export const PUSH_CLIPS: Record<MohlikPushClip, { count: number; fps: number; end: 'hold' }>;
+export type MohlikRollClip = 'curl' | 'roll' | 'unroll-left' | 'unroll-right';
+export const ROLL_CLIPS: Record<MohlikRollClip, { count: number; fps: number; end: 'hold' }>;
+export function renderRollFrame(name: MohlikRollClip, frame?: number): string;
 /** Twelve full-size effort frames; page-contact paws stay fixed throughout. */
 export function renderPushFrame(name?: MohlikPushClip, frame?: number): string;
 export function renderExtraFrame(name: ExtraMotionClip, frame: number): string;
