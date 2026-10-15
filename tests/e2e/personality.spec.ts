@@ -541,6 +541,61 @@ test.describe('Lively companion', () => {
   });
 });
 
+test.describe('Short landscape companion', () => {
+  test.use({ viewport: { width:667,height:375 }, hasTouch:true });
+  for (const side of ['left','right'] as const) {
+    test(`keeps seven scene buttons reachable at the ${side} edge of a short landscape viewport`, async ({ page },testInfo) => {
+      await page.addInitScript(() => { Math.random = () => .5; });
+      await ready(page);
+      const reserved = await page.evaluate(() => window.pikaDemo.adapter.getContext().ui.bottomReservedPx);
+      // Set up the edge position through the drag handlers; use native taps for the menu below.
+      const box = await launcher(page).boundingBox();
+      const pointer = { pointerId:1,pointerType:'mouse',isPrimary:true,button:0,bubbles:true,composed:true };
+      const target = { clientX:side === 'left' ? 40 : 627,clientY:375-reserved-32 };
+      await launcher(page).dispatchEvent('pointerdown',{
+        ...pointer,buttons:1,clientX:box!.x+box!.width/2,clientY:box!.y+box!.height/2,
+      });
+      await expect(character(page)).toHaveAttribute('data-motion','drag');
+      await launcher(page).dispatchEvent('pointermove',{ ...pointer,...target,buttons:1 });
+      await expect(character(page)).toHaveAttribute('data-dragging','true');
+      await launcher(page).dispatchEvent('pointerup',{ ...pointer,...target,buttons:0 });
+      await finishMotion(page);
+      await page.mouse.move(333,0);
+      const actor = await launcher(page).boundingBox();
+      expect(side === 'left' ? actor!.x+32 < 132 : actor!.x+32 > 535).toBe(true);
+      await launcher(page).tap();
+      await expect(page.locator('.companion-skills')).toBeVisible();
+      const buttons = page.locator('.companion-skill');
+      await expect(buttons).toHaveCount(7);
+      const rectangles = await buttons.evaluateAll((elements) => elements.map((element) => {
+        const { x,y,width,height } = element.getBoundingClientRect();
+        return { x,y,width,height };
+      }));
+      expect(new Set(rectangles.map((rect) => Math.round(rect.x))).size).toBe(2);
+      rectangles.forEach((rect,index) => {
+        expect(rect.width).toBe(40); expect(rect.height).toBe(40);
+        expect(rect.x).toBeGreaterThanOrEqual(12);
+        expect(rect.y).toBeGreaterThanOrEqual(12);
+        expect(rect.x+rect.width).toBeLessThanOrEqual(655);
+        expect(rect.y+rect.height).toBeLessThanOrEqual(375-reserved-12);
+        rectangles.slice(index+1).forEach((other) => {
+          expect(Math.abs(rect.x-other.x) >= 40 || Math.abs(rect.y-other.y) >= 40).toBe(true);
+        });
+      });
+      await page.screenshot({ path:testInfo.outputPath('landscape-menu.png') });
+      await page.locator('[data-companion-skill="guitar"]').tap();
+      await expect(character(page)).toHaveAttribute('data-animation','guitar');
+      await expect(character(page).locator('canvas')).toHaveAttribute('data-sheet','guitar');
+      await buttons.first().focus();
+      for (let index = 0; index < 7; index++) {
+        await expect(buttons.nth(index)).toBeFocused();
+        await page.keyboard.press('ArrowDown');
+      }
+      await expect(buttons.first()).toBeFocused();
+    });
+  }
+});
+
 test.describe('Compact companion', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
   test('responds to taps and yields to shop and buy panels', async ({ page }) => {

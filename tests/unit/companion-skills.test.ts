@@ -10,7 +10,7 @@ afterEach(() => {
   document.body.replaceChildren(); vi.unstubAllGlobals(); vi.restoreAllMocks();
 });
 
-function setup(compact = false, isInteractionBlocked?: () => boolean) {
+function setup(compact = false, isInteractionBlocked?: () => boolean, availableScenes = scenes) {
   const host = document.createElement('anime-shop-assistant');
   const shadow = host.attachShadow({ mode: 'open' });
   const launcher = document.createElement('button');
@@ -22,7 +22,7 @@ function setup(compact = false, isInteractionBlocked?: () => boolean) {
   const runScene = vi.fn();
   const setInteractionHold = vi.fn();
   const lookAt = vi.fn();
-  controller = mountCompanionSkills({ getHost: () => host, runScene, setInteractionHold, isInteractionBlocked, lookAt, scenes });
+  controller = mountCompanionSkills({ getHost: () => host, runScene, setInteractionHold, isInteractionBlocked, lookAt, scenes: availableScenes });
   const palette = document.querySelector<HTMLElement>('.companion-skills')!;
   const buttons = [...palette.querySelectorAll<HTMLButtonElement>('button')];
   return { host, launcher, palette, buttons, runScene, setInteractionHold, lookAt };
@@ -39,6 +39,64 @@ function pointer(target: Element, type: string, options: {
 const flush = async () => { await Promise.resolve(); await Promise.resolve(); };
 
 describe('companion skill placement', () => {
+  it.each([8,595])('preserves all seven scenes where the old six-button column fit at x=%ipx on 667×375', (left) => {
+    const actor = { left, top: 286, size: 64 };
+    const viewport = { left: 0, top: 0, width: 667, height: 375 };
+    const old = calculateSkillsPlacement(actor,viewport,6);
+    expect(old.visible).toBe(true);
+    expect(old.layout).toBe('column');
+    const value = calculateSkillsPlacement(actor,viewport,7);
+    expect(value.visible).toBe(true);
+    expect(value.layout).toBe('grid');
+    expect(value.columns).toBe(2);
+    expect(value.top+value.height).toBeLessThanOrEqual(actor.top-12);
+    expect(value.points).toHaveLength(7);
+  });
+  it.each([
+    { width: 667, height: 375, left: 8, top: 12 },
+    { width: 667, height: 307, left: 595, top: 238 },
+    { width: 568, height: 320, left: 8, top: 235 },
+    { width: 320, height: 200, left: 8, top: 118 },
+    { width: 320, height: 120, left: 8, top: 28 },
+    { width: 320, height: 120, left: 248, top: 28 },
+    { width: 667, height: 200, left: 301, top: 100 },
+  ])('keeps seven full-size buttons reachable in a short $width×$height viewport', ({ width,height,left,top }) => {
+    const viewport = { left:30,top:60,width,height };
+    const actor = { left:left+30,top:top+60,size:64 };
+    const value = calculateSkillsPlacement(actor,viewport,7);
+    expect(value.visible).toBe(true);
+    expect(value.layout).toBe('grid');
+    expect(value.left).toBeGreaterThanOrEqual(42);
+    expect(value.top).toBeGreaterThanOrEqual(72);
+    expect(value.left+value.width).toBeLessThanOrEqual(30+width-12);
+    expect(value.top+value.height).toBeLessThanOrEqual(60+height-12);
+    expect(value.left+value.width <= actor.left-12 || value.left >= actor.left+actor.size+12 ||
+      value.top+value.height <= actor.top-12 || value.top >= actor.top+actor.size+12).toBe(true);
+    expect(value.points).toHaveLength(7);
+    value.points.forEach((a,index) => {
+      expect(a.left).toBeGreaterThanOrEqual(0);
+      expect(a.top).toBeGreaterThanOrEqual(0);
+      expect(a.left+40).toBeLessThanOrEqual(value.width);
+      expect(a.top+40).toBeLessThanOrEqual(value.height);
+      value.points.slice(index+1).forEach((b) => {
+        expect(Math.abs(a.left-b.left) >= 40 || Math.abs(a.top-b.top) >= 40).toBe(true);
+      });
+    });
+  });
+  it.each([320,390,1440])('keeps all seven scene buttons apart and inside a %ipx viewport', (width) => {
+    for (const left of [0,(width-96)/2,width-96]) {
+      const value = calculateSkillsPlacement({ left,top:600,size:96 }, { left:0,top:0,width,height:800 },7);
+      expect(value.visible).toBe(true);
+      expect(value.left).toBeGreaterThanOrEqual(12);
+      expect(value.top).toBeGreaterThanOrEqual(12);
+      expect(value.left+value.width).toBeLessThanOrEqual(width-12);
+      expect(value.top+value.height).toBeLessThanOrEqual(788);
+      expect(value.points).toHaveLength(7);
+      value.points.forEach((a,index) => value.points.slice(index+1).forEach((b) => {
+        expect(Math.hypot(a.left-b.left,a.top-b.top)).toBeGreaterThanOrEqual(40);
+      }));
+    }
+  });
   it.each([320, 390, 1920])('keeps six nonoverlapping targets in a column directly above either edge at %ipx', (width) => {
     for (const left of [0, width - 64]) {
       const value = calculateSkillsPlacement({ left, top: 490, size: 64 }, { left: 0, top: 0, width, height: 568 });
@@ -82,6 +140,35 @@ describe('companion skill placement', () => {
 });
 
 describe('companion skills interaction and lifetime', () => {
+  it('opens the seven-button fallback on a short screen and dispatches the guitar through touch and keyboard', () => {
+    vi.stubGlobal('innerWidth',667); vi.stubGlobal('innerHeight',375);
+    const available = [...scenes,{ name:'guitar',title:'Лесной рок',description:'Description',glyph:'♫' }];
+    const { launcher,palette,buttons,runScene,setInteractionHold } = setup(true,undefined,available);
+    launcher.style.left = '595px'; launcher.style.top = '286px';
+    pointer(launcher,'pointerdown',{ pointerType:'touch' });
+    pointer(launcher,'pointerup',{ pointerType:'touch' });
+    expect(palette.hidden).toBe(false);
+    expect(setInteractionHold).toHaveBeenLastCalledWith(true);
+    expect(new Set(buttons.map((button) => button.style.left)).size).toBe(2);
+    buttons[6]!.click();
+    expect(runScene).toHaveBeenCalledExactlyOnceWith('guitar');
+    buttons[0]!.focus();
+    for (let index = 0; index < 7; index++) {
+      expect(document.activeElement).toBe(buttons[index]);
+      buttons[index]!.dispatchEvent(new KeyboardEvent('keydown',{ key:'ArrowDown',bubbles:true }));
+    }
+    expect(document.activeElement).toBe(buttons[0]);
+    vi.stubGlobal('innerHeight',844);
+    window.dispatchEvent(new Event('resize'));
+    expect(palette.hidden).toBe(false);
+    expect(new Set(buttons.map((button) => button.style.left)).size).toBe(1);
+    vi.stubGlobal('innerHeight',375);
+    window.dispatchEvent(new Event('resize'));
+    expect(palette.hidden).toBe(false);
+    expect(new Set(buttons.map((button) => button.style.left)).size).toBe(2);
+    controller!.close();
+    expect(setInteractionHold).toHaveBeenLastCalledWith(false);
+  });
   it.each(['arrival', 'climb', 'fall', 'parachute', 'return', 'peek', 'hide', 'land', 'drag', 'page-push'])('opens after %s ends under the same stationary pointer without another pointerover', async (phase) => {
     const requestFrame = vi.fn(); vi.stubGlobal('requestAnimationFrame', requestFrame);
     const { host, launcher, palette, setInteractionHold } = setup();

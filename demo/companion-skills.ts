@@ -11,26 +11,61 @@ interface SkillsActor { left: number; top: number; size: number; canopy?: boolea
 interface SkillsPlacement {
   left: number; top: number; width: number; height: number; columns: number;
   below: boolean; visible: boolean;
-  layout: 'arc' | 'column';
+  layout: 'arc' | 'column' | 'grid';
   points: { left: number; top: number }[];
 }
 
 /** Keep all controls inside the visible browser area, including narrow touch screens. */
 export function calculateSkillsPlacement(actor: SkillsActor, viewport: SkillsViewport, count = 6): SkillsPlacement {
-  const margin = 12, cell = 40;
+  const margin = 12, cell = 40, gap = 12, spacing = 4;
   const clamp = (value: number, minimum: number, maximum: number) => Math.max(minimum, Math.min(value, maximum));
   const center = actor.left + actor.size / 2;
+  const actorTop = actor.top - (actor.canopy ? actor.size * .5 : 0);
+  const actorVisible = actor.left + actor.size > viewport.left && actor.left < viewport.left + viewport.width &&
+    actor.top + actor.size > viewport.top && actorTop < viewport.top + viewport.height;
+  const compactPlacement = (): SkillsPlacement | null => {
+    if (count <= 0 || !actorVisible) return null;
+    const left = viewport.left + margin, top = viewport.top + margin;
+    const right = viewport.left + viewport.width - margin, bottom = viewport.top + viewport.height - margin;
+    // Try above/below first, then beside the actor if neither has room for one row.
+    const areas = [
+      { left, top, width: right-left, height: actorTop-gap-top, below: false },
+      { left, top: actor.top+actor.size+gap, width: right-left, height: bottom-actor.top-actor.size-gap, below: true },
+      { left: actor.left+actor.size+gap, top, width: right-actor.left-actor.size-gap, height: bottom-top, below: false },
+      { left, top, width: actor.left-gap-left, height: bottom-top, below: false },
+    ];
+    for (const area of areas) {
+      const maxRows = Math.floor((area.height+spacing)/(cell+spacing));
+      if (maxRows < 1) continue;
+      const columns = Math.ceil(count/Math.min(count,maxRows));
+      const rows = Math.ceil(count/columns);
+      const width = columns*cell+(columns-1)*spacing;
+      const height = rows*cell+(rows-1)*spacing;
+      if (width > area.width || height > area.height) continue;
+      return {
+        left: clamp(center-width/2,area.left,area.left+area.width-width),
+        top: clamp(actor.top+actor.size/2-height/2,area.top,area.top+area.height-height),
+        width, height, columns, below: area.below, visible: true, layout: 'grid',
+        points: Array.from({ length: count }, (_, index) => ({
+          left: (index%columns)*(cell+spacing), top: Math.floor(index/columns)*(cell+spacing),
+        })),
+      };
+    }
+    return null;
+  };
   const nearEdge = center < viewport.left + 132 || center > viewport.left + viewport.width - 132;
   if (nearEdge) {
-    const gap = 12;
-    const height = count * cell + Math.max(0, count - 1) * 4;
-    const actorTop = actor.top - (actor.canopy ? actor.size * .5 : 0);
+    const height = count * cell + Math.max(0, count - 1) * spacing;
     const aboveTop = actorTop - height - gap;
     const belowTop = actor.top + actor.size + gap;
     const fitsAbove = aboveTop >= viewport.top + margin &&
       aboveTop + height <= viewport.top + viewport.height - margin;
     const fitsBelow = belowTop >= viewport.top + margin &&
       belowTop + height <= viewport.top + viewport.height - margin;
+    if (!fitsAbove && !fitsBelow) {
+      const compact = compactPlacement();
+      if (compact) return compact;
+    }
     const below = !fitsAbove;
     const preferredTop = below ? belowTop : aboveTop;
     return {
@@ -38,9 +73,8 @@ export function calculateSkillsPlacement(actor: SkillsActor, viewport: SkillsVie
       top: clamp(preferredTop, viewport.top + margin, viewport.top + viewport.height - height - margin),
       width: cell, height, columns: 1, below, layout: 'column',
       visible: count > 0 && (fitsAbove || fitsBelow) && cell <= viewport.width - 2 * margin &&
-        actor.left + actor.size > viewport.left && actor.left < viewport.left + viewport.width &&
-        actor.top + actor.size > viewport.top && actorTop < viewport.top + viewport.height,
-      points: Array.from({ length: count }, (_, index) => ({ left: 0, top: index * (cell + 4) })),
+        actorVisible,
+      points: Array.from({ length: count }, (_, index) => ({ left: 0, top: index * (cell + spacing) })),
     };
   }
   const radius = Math.max(0, Math.min(100, (viewport.width - margin * 2 - cell) / (2 * Math.cos(Math.PI / 12))));
@@ -51,13 +85,15 @@ export function calculateSkillsPlacement(actor: SkillsActor, viewport: SkillsVie
   const minX = Math.min(...curve.map((point) => point.x)), maxX = Math.max(...curve.map((point) => point.x));
   const minY = Math.min(...curve.map((point) => point.y)), maxY = Math.max(...curve.map((point) => point.y));
   const width = maxX - minX + cell, height = maxY - minY + cell;
-  const actorTop = actor.top - (actor.canopy ? actor.size * .5 : 0);
   const above = actorTop + 12 + minY - cell / 2;
   const below = above < viewport.top + margin;
   const preferredTop = below ? actor.top + actor.size - 6 : above;
   const visible = count > 0 && width <= viewport.width - margin * 2 + .01 && height <= viewport.height - margin * 2 &&
-    actor.left + actor.size > viewport.left && actor.left < viewport.left + viewport.width &&
-    actor.top + actor.size > viewport.top && actorTop < viewport.top + viewport.height;
+    actorVisible && preferredTop >= viewport.top + margin && preferredTop + height <= viewport.top + viewport.height - margin;
+  if (!visible) {
+    const compact = compactPlacement();
+    if (compact) return compact;
+  }
   return {
     left: clamp(actor.left + actor.size / 2 - width / 2, viewport.left + margin, viewport.left + viewport.width - width - margin),
     top: clamp(preferredTop, viewport.top + margin, viewport.top + viewport.height - height - margin),
