@@ -922,6 +922,11 @@ button[hidden],
   width: max-content;
   line-height: 1.6;
 }
+.shop-toast:empty {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
 .shop-toast.visible {
   opacity: 1;
   transform: translate(-50%, 0);
