@@ -167,6 +167,18 @@ function leafTail(pose, prefix, rear = false) {
 function foot(side, pose, prefix) {
   const left = side === 'left';
   const x = left ? 72 : 120;
+  if (pose.legDrop) {
+    const hip = left ? 75 : 117;
+    const fx = (offset) => round(hip+(left ? offset : -offset));
+    const fy = (y) => round(160+(y-160)*pose.legDrop);
+    const angle = left ? 4 : -4;
+    // The belly hides the thighs on the ground. Lifting reveals relaxed legs
+    // with rounded toes, rather than stretching the ordinary standing soles.
+    return `<g data-part="foot-${side}" transform="rotate(${angle} ${hip} 160)">
+      <path d="M${fx(-8)} 158 Q${fx(-10)} ${fy(174)} ${fx(-7)} ${fy(185)} L${fx(-6)} ${fy(190)} Q${fx(-6)} ${fy(197)} ${fx(1)} ${fy(197)} Q${fx(9)} ${fy(197)} ${fx(7)} ${fy(190)} Q${fx(4)} ${fy(181)} ${fx(7)} ${fy(170)} L${fx(8)} 158Z" fill="url(#${prefix}-body)"/>
+      <path d="M${fx(-2)} ${fy(192)} L${fx(-1)} ${fy(195)} M${fx(3)} ${fy(192)} L${fx(4)} ${fy(194)}" fill="none" stroke-width="1.2" opacity=".65"/>
+    </g>`;
+  }
   // Reveal a little more of the unchanged soles below the belly. This small
   // anatomy offset preserves their size, short legs and every pose's motion.
   const moveX = (left ? pose.footLeftX : pose.footRightX)+(left ? -1 : 1);
@@ -193,10 +205,22 @@ export function mohlikArm(side, pose) {
   const left = side === 'left';
   if (!left && pose.waveReach > 0) {
     const reach = pose.waveReach;
-    const mix = (from,to) => round(from+(to-from)*reach);
-    return `<g data-part="arm-right" data-gesture="wave">
-      <path d="M131 125 Q${mix(145,142)} ${mix(132,104)} ${mix(145,151)} ${mix(143,102)} L${mix(134,163)} ${mix(147,111)} Q${mix(125,152)} ${mix(137,125)} 131 125Z" stroke-width="1.8"/>
-      <g transform="rotate(${round(pose.waveWrist)} ${mix(138,155)} ${mix(142,106)})"><path d="M${mix(132,150)} ${mix(147,109)} Q${mix(126,144)} ${mix(140,99)} ${mix(131,148)} ${mix(133,90)} Q${mix(135,151)} ${mix(127,82)} ${mix(139,156)} ${mix(132,86)} Q${mix(144,162)} ${mix(128,80)} ${mix(146,166)} ${mix(135,88)} Q${mix(151,173)} ${mix(135,85)} ${mix(150,173)} ${mix(142,95)} Q${mix(148,174)} ${mix(149,103)} ${mix(140,160)} ${mix(151,112)}Z" stroke-width="1.8"/><path d="M${mix(137,154)} ${mix(137,91)} L${mix(139,157)} ${mix(141,96)} M${mix(144,163)} ${mix(136,90)} L${mix(145,165)} ${mix(142,96)}" fill="none" stroke-width="1.1"/></g>
+    // Rotate the unchanged plush paw as one piece. Its outline never grows
+    // fingers or a long forearm; the soft underside turns towards the viewer.
+    const angle = round(-154*reach+pose.waveWrist*.75);
+    return `<g data-part="arm-right" data-gesture="wave" transform="rotate(${angle} 136 126)">
+      <path d="M137 122 Q147 128 145 142 Q145 152 137 153 Q128 154 127 146 Q126 134 131 126" stroke-width="1.8"/>
+      <g data-part="wave-paw-pads" opacity="${round(reach)}" fill="#d4ada3" stroke="none">
+        <ellipse cx="137" cy="140.6" rx="3.5" ry="3"/>
+        <ellipse cx="131.6" cy="147.5" rx="1.45" ry="1.65"/>
+        <ellipse cx="137.4" cy="148.6" rx="1.45" ry="1.65"/>
+        <ellipse cx="142.7" cy="146.5" rx="1.35" ry="1.55"/>
+      </g>
+      <g data-part="wave-paw-claws" opacity="${round(reach)}" fill="#faf4e2" stroke="#8c9978" stroke-width=".45">
+        <path d="M130.8 151.7 Q130.3 153.2 131.6 154.2 Q132.6 153.4 132.5 152.3Z"/>
+        <path d="M136.1 152.6 Q136.1 154.4 137.4 155.1 Q138.4 153.8 138.1 152.5Z"/>
+        <path d="M141.8 151.1 Q142.3 153 143.8 153.1 Q144.3 151.8 143.6 150.7Z"/>
+      </g>
     </g>`;
   }
   // Quiet actions rotate the original short paw at its shoulder. Scratching
@@ -239,9 +263,12 @@ function climbingArm(side, y, bend = 0, pull = 0) {
 }
 
 function raisedArms(pose) {
+  // The same short paws turn up to grip the cords beside the cheeks.
+  // Keep the palms fixed while the head sways so the cords stay in the grip.
+  const grip = {...pose,leftArm:155,rightArm:-155};
   return `<g data-part="raised-arms">
-    <g transform="rotate(${round(pose.headTilt*1.25)} 67 118)"><path d="M68 123 Q51 116 42 95 Q32 82 40 74 Q48 65 56 75 Q61 81 54 89 Q62 105 79 116Z"/><path d="M42 77 L46 81 M49 75 L53 79" fill="none" stroke-width="1.2"/></g>
-    <g transform="rotate(${round(pose.headTilt*1.25)} 128 118)"><path d="M126 123 Q144 115 153 95 Q163 82 155 74 Q147 65 139 75 Q135 81 142 89 Q134 105 116 116Z"/><path d="M154 77 L150 81 M147 75 L143 79" fill="none" stroke-width="1.2"/></g>
+    ${mohlikArm('left',grip)}${mohlikArm('right',grip)}
+    <path d="M44 107 Q48 110 51 107 M141 107 Q145 110 148 107" fill="none" stroke-width="1.2" opacity=".65"/>
   </g>`;
 }
 
@@ -249,11 +276,14 @@ function face(pose) {
   const surprise = pose.surprise;
   const mouth = surprise
     ? '<ellipse cx="96" cy="112" rx="4" ry="5" fill="#617249" stroke-width="1.5"/>'
-    : pose.joy > .25
+    : pose.curious
+      ? '<path d="M88 111 Q96 118 105 110" fill="none" stroke-width="1.7"/>'
+      : pose.joy > .25
       ? `<path d="M88 111 Q96 ${round(117+pose.joy*2)} 104 111 Q96 113 88 111Z" fill="#617249" stroke-width="1.4"/><path d="M92 116 Q96 114 100 116" fill="none" stroke="#c6ad8b" stroke-width="1.8"/>`
       : '<path d="M85 111 Q96 116 107 111" fill="none" stroke-width="1.7"/>';
   return `<g data-part="face">
     <ellipse cx="96" cy="109" rx="20" ry="9" fill="${cream}" stroke="none" opacity=".48"/>
+    ${pose.curious ? '<path data-part="curious-brows" d="M64 73 Q72 70 80 73 M112 71 Q120 66 128 70" fill="none" stroke-width="1.5" opacity=".8"/>' : ''}
     ${eye(72, 90, pose.eyeLeft ?? pose.eyes, pose.joy, 1.2, pose.gazeX, pose.gazeY)}
     ${eye(120, 90, pose.eyeRight ?? pose.eyes, pose.joy, -1.2, pose.gazeX, pose.gazeY)}
     <g data-part="nose" transform="translate(${pose.noseTwitch??0} ${pose.noseLift??0})${pose.noseTilt ? ` rotate(${pose.noseTilt} 96 103)` : ''}"><path d="M90 103 Q96 98 102 103 Q96 109 90 103Z" fill="#52674b" stroke="none"/></g>
@@ -407,8 +437,28 @@ export function renderExtraFrame(name, frame) {
 
 export function renderPersonalityFrame(index) {
   const pose = personalityPose(index);
-  const {kind} = PERSONALITY_FRAMES[index];
-  let content = pose.turn ? mohlikProfileBody(pose) : mohlikBody(pose,kind === 'held' || kind === 'parachute');
+  const {kind,frame} = PERSONALITY_FRAMES[index];
+  const airborne = kind === 'held' || kind === 'fall' || kind === 'parachute';
+  // Keep one relaxed leg pose throughout a drop, including canopy deployment.
+  if (airborne) {
+    pose.legDrop = kind === 'held' ? [.72,1,1][frame] : 1;
+    // Settle the full-size head closer to the lifted torso so even the highest
+    // ear tips keep their margin, with room below for the dangling legs.
+    pose.headY += 8;
+  }
+  if (kind === 'held') {
+    pose.surprise = 0;
+    pose.curious = true;
+    pose.joy = .18;
+    pose.gazeY = -2.8;
+    pose.eyeLeft = .94;
+    // The ordinary short paws spread on pickup, then settle by the belly.
+    pose.leftArm = [34,18,22][frame];
+    pose.rightArm = [-30,-20,-16][frame];
+  }
+  let content = pose.turn ? mohlikProfileBody(pose) : mohlikBody(pose,kind === 'parachute');
+  // Lift the full-size torso to leave space for the revealed legs in the cell.
+  if (airborne) content = `<g transform="translate(0 -12)">${content}</g>`;
   if (pose.turn === .55) content = `<g transform="translate(10 0) scale(.92 1)">${content}</g>`;
   // Preserve body/head size while rotating the tucked drawing around its centre.
   if (kind === 'somersault') {
