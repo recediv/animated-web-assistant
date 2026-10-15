@@ -3208,8 +3208,8 @@ async function run(origin) {
       await wait(40);
       assert.equal(
         shadow.querySelector('canvas').dataset.frame,
-        String(atlasManifest.poses.left),
-        'character looks left toward cursor',
+        String(atlasManifest.neutralFrame),
+        'ordinary cursor movement on the left leaves gaze neutral',
       );
       document.dispatchEvent(
         new window.MouseEvent('pointermove', {
@@ -3221,8 +3221,8 @@ async function run(origin) {
       await wait(40);
       assert.equal(
         shadow.querySelector('canvas').dataset.frame,
-        String(atlasManifest.poses.right),
-        'character looks right toward cursor',
+        String(atlasManifest.neutralFrame),
+        'ordinary cursor movement on the right leaves gaze neutral',
       );
       document.dispatchEvent(new window.MouseEvent('pointermove', {
         bubbles: true, clientX: center().x - 400, clientY: center().y,

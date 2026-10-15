@@ -347,7 +347,8 @@ export function mountCompanionSkills(options: {
       close(false, openRequested); return;
     }
     for (const button of buttons) button.setAttribute('aria-disabled', String(motionOff()));
-    if (palette.hidden) {
+    const opening = palette.hidden;
+    if (opening) {
       if (!openRequested || !currentOpenIntent()) {
         openRequested = false; observeInteraction(); return;
       }
@@ -355,6 +356,10 @@ export function mountCompanionSkills(options: {
     }
     hold(!motionOff());
     position();
+    if (opening && !palette.hidden && !motionOff()) {
+      const value = actor();
+      if (value) options.lookAt?.({ x: value.left + value.size / 2, y: value.top - value.size / 2 });
+    }
     observeInteraction();
   }
   function open(): void {
@@ -412,6 +417,8 @@ export function mountCompanionSkills(options: {
       return;
     }
     if (!nearRegion({ x: event.clientX, y: event.clientY }) && !inRegion(event.target)) close();
+    else if (!motionOff() && event.target instanceof Node && palette.contains(event.target))
+      options.lookAt?.(pointerPoint);
   }, listenerOptions);
   document.addEventListener('focusin', (event) => {
     if (restoringFocus || pressedOnHost) return;

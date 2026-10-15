@@ -330,15 +330,19 @@ describe('companion skills interaction and lifetime', () => {
   });
   it('sends the exact hovered or keyboard-focused control centre as one finite gaze update without a frame loop', () => {
     const requestFrame = vi.fn(); vi.stubGlobal('requestAnimationFrame', requestFrame);
-    const { launcher, palette, buttons, lookAt } = setup(); pointer(launcher, 'pointerover');
+    const { launcher, palette, buttons, lookAt } = setup(); pointer(launcher, 'pointerover', { x: 228, y: 550 });
+    expect(lookAt).toHaveBeenCalledTimes(1);
+    lookAt.mockClear();
     pointer(buttons[0]!, 'pointerover'); buttons[5]!.focus();
     expect(lookAt.mock.calls).toEqual([0, 5].map((index) => [{
       x: parseFloat(palette.style.left) + parseFloat(buttons[index]!.style.left) + 20,
       y: parseFloat(palette.style.top) + parseFloat(buttons[index]!.style.top) + 20,
     }]));
     expect(requestFrame).not.toHaveBeenCalled();
-    controller!.close(); pointer(buttons[0]!, 'pointerover');
-    expect(lookAt).toHaveBeenCalledTimes(2);
+    pointer(palette, 'pointermove', { x: 900, y: 440 });
+    expect(lookAt).toHaveBeenLastCalledWith({ x: 900, y: 440 });
+    controller!.close(); lookAt.mockClear(); pointer(buttons[0]!, 'pointerover');
+    expect(lookAt).not.toHaveBeenCalled();
   });
   it('closes keyboard-opened controls and releases hold when the pointer moves onto another element', () => {
     const { launcher, palette, buttons, setInteractionHold } = setup();

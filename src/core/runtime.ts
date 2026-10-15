@@ -55,7 +55,6 @@ export class AssistantRuntime implements AssistantInstance {
   private shown = false;
   private pointerFrame = 0;
   private pointerNear = false;
-  private pointerLooking = false;
   private cursor = { x: 0, y: 0 };
   private paletteLook: { x: number; y: number } | null = null;
   private greetingHeld = false;
@@ -180,18 +179,6 @@ export class AssistantRuntime implements AssistantInstance {
         const near = distance < rect.width * .65;
         if (near && !this.pointerNear) this.controller.react('pointer:near');
         this.pointerNear = near;
-        if (!this.controller.snapshot.sleeping && !this.controller.snapshot.pose && this.controller.snapshot.animation === 'static') {
-          // Explicit attention to a scene button can reach above the character;
-          // ordinary cursor tracking stays within one character size.
-          if (this.controller.interactionOnHold && this.paletteLook) return;
-          if (distance > rect.width) {
-            if (this.pointerLooking) { this.player.stop(); this.pointerLooking = false; }
-            return;
-          }
-          this.player.setFacing(1);
-          this.player.look(Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down'));
-          this.pointerLooking = true;
-        }
       });
     }, { ...options, passive: true });
     document.addEventListener('keydown', (event) => {
@@ -308,7 +295,12 @@ export class AssistantRuntime implements AssistantInstance {
   setInteractionHold(hold: boolean): void {
     if (this.destroyed) return;
     if ((this.pagePush || this.pageSuspended) && !hold) return;
-    if (!hold) this.paletteLook = null;
+    if (!hold) {
+      const looked = this.paletteLook !== null;
+      this.paletteLook = null;
+      if (looked && this.controller.snapshot.animation === 'static' && !this.controller.snapshot.pose &&
+          !this.controller.snapshot.sleeping) this.player.stop();
+    }
     this.controller.setInteractionHold(hold);
     if (hold && this.view.dataset.motion === 'stroll') {
       this.cancelMotion();
@@ -326,20 +318,16 @@ export class AssistantRuntime implements AssistantInstance {
   lookAt(point: { x: number; y: number }): void {
     if (!this.ready || this.destroyed || !this.controller.available || !this.controller.motionAllowed ||
         !this.controller.interactionOnHold || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return;
-    // Discard any cursor update queued before this control was hovered.
-    if (this.pointerFrame) { cancelAnimationFrame(this.pointerFrame); this.pointerFrame = 0; }
     this.paletteLook = { ...point };
     if (this.dragGesture || this.controller.interacting || this.controller.snapshot.sleeping ||
         this.controller.snapshot.animation !== 'static') return;
     this.controller.clearPoseForLook();
     const rect = this.view.launcher.getBoundingClientRect();
-    const dx = point.x - (rect.left + rect.width / 2), dy = point.y - (rect.top + rect.height / 2);
+    const dx = point.x - (rect.left + rect.width / 2);
+    const dy = Math.min(point.y - (rect.top + rect.height / 2), -rect.height / 2);
     this.player.setFacing(1);
-    const direction: PoseName = dy < 0 && Math.abs(dx) > Math.abs(dy) * .35
-      ? (dx < 0 ? 'up-left' : 'up-right')
-      : Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
+    const direction: PoseName = Math.abs(dx) > Math.abs(dy) * .35 ? (dx < 0 ? 'up-left' : 'up-right') : 'up';
     this.player.look(direction);
-    this.pointerLooking = true;
   }
 
   async preparePagePush(side: 'left' | 'right'): Promise<boolean> {

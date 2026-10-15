@@ -222,32 +222,43 @@ test.describe('Lively companion', () => {
     await expect(character(page).locator('dialog')).not.toHaveAttribute('open');
   });
 
-  test('tracks the cursor with discrete poses and no idle frame loop', async ({ page }) => {
-    await page.addInitScript(() => { Math.random = () => 0.5; });
+  test('looks up only while choosing a scene and resets on closing the menu', async ({ page }) => {
+    await page.addInitScript(() => { Math.random = () => .5; });
     await ready(page);
     await page.evaluate(async () => {
-      const instance = window.pikaDemo.assistant;
-      await instance.setMotion?.('off');
-      await instance.setMotion?.('system');
-      instance.setInteractionHold?.(true);
+      await window.pikaDemo.assistant.setMotion?.('off');
+      await window.pikaDemo.assistant.setMotion?.('system');
+      window.pikaDemo.assistant.setInteractionHold?.(true);
     });
-    // Measure cursor directions from the actual arrival position.
-    const box = await launcher(page).boundingBox();
-    await page.mouse.move(Math.max(0, box!.x - box!.width * .35), box!.y + box!.height / 2);
+    const box = (await launcher(page).boundingBox())!;
+    const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    const canvas = character(page).locator('canvas');
+    const palette = page.locator('.companion-skills');
     const manifest = await (await page.request.get('/assistant/1.0.0/atlas.json')).json();
-    await expect(character(page).locator('canvas')).toHaveAttribute(
-      'data-frame',
-      String(manifest.poses.left),
-    );
-    await page.mouse.move(box!.x + box!.width / 2, box!.y - box!.height * .35);
-    await expect(character(page).locator('canvas')).toHaveAttribute(
-      'data-frame',
-      String(manifest.poses.up),
-    );
-    await page.waitForTimeout(250);
-    await expect(character(page).locator('canvas')).toHaveAttribute('data-frame', String(manifest.poses.up));
-    await expect(character(page)).toHaveAttribute('data-animation', 'static');
-    await page.evaluate(() => window.pikaDemo.assistant.setInteractionHold?.(false));
+    for (const sign of [-1, 1]) {
+      await page.mouse.move(center.x + sign * box.width * .85, center.y);
+      await page.waitForTimeout(40);
+      await expect(palette).toBeHidden();
+      await expect(canvas).toHaveAttribute('data-frame', String(manifest.neutralFrame));
+    }
+    await page.mouse.move(center.x, box.y + box.height * .65);
+    await expect(palette).toBeVisible();
+    await expect(canvas).toHaveAttribute('data-frame', String(manifest.poses.up));
+    for (const index of [0, 3, 6]) {
+      const button = (await palette.locator('button').nth(index).boundingBox())!;
+      const point = { x: button.x + button.width / 2, y: button.y + button.height / 2 };
+      await page.mouse.move(point.x, point.y);
+      const dx = point.x - center.x, dy = Math.min(point.y - center.y, -box.height / 2);
+      const pose = Math.abs(dx) > Math.abs(dy) * .35 ? (dx < 0 ? 'up-left' : 'up-right') : 'up';
+      await expect(canvas).toHaveAttribute('data-frame', String(manifest.poses[pose]));
+    }
+    await page.mouse.move(0, 0);
+    await expect(palette).toBeHidden();
+    await expect(canvas).toHaveAttribute('data-frame', String(manifest.neutralFrame));
+    await page.mouse.move(center.x - box.width * .85, center.y);
+    await expect(palette).toBeHidden();
+    await page.waitForTimeout(100);
+    await expect(canvas).toHaveAttribute('data-frame', String(manifest.neutralFrame));
   });
 
   test('reacts to product hover and a failed cart update', async ({ page }) => {
@@ -600,7 +611,7 @@ test.describe('Lively companion', () => {
     await expectInsideViewport(page);
   });
 
-  test('supports mouse dragging only from visible fur and tracks only a nearby cursor', async ({ page }) => {
+  test('supports dragging only from visible fur and keeps gaze idle outside scene selection', async ({ page }) => {
     await page.addInitScript(() => { Math.random = () => .5; });
     await ready(page);
     await page.evaluate(async () => {
@@ -612,7 +623,7 @@ test.describe('Lively companion', () => {
     const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
     const manifest = await (await page.request.get('/assistant/1.0.0/atlas.json')).json();
     await page.mouse.move(Math.max(0, center.x - box.width * .85), center.y);
-    await expect(character(page).locator('canvas')).toHaveAttribute('data-frame', String(manifest.poses.left));
+    await expect(character(page).locator('canvas')).toHaveAttribute('data-frame', String(manifest.neutralFrame));
     await expect(page.locator('.companion-skills')).toBeHidden();
     await page.mouse.move(center.x > 400 ? center.x - 400 : center.x + 400, center.y);
     await expect(character(page).locator('canvas')).toHaveAttribute('data-frame', String(manifest.neutralFrame));
