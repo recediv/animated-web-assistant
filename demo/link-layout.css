@@ -1,0 +1,71 @@
+/* Text and arrow stay together in every route and at every screen width. */
+#app .text-link,
+#app .all-catalog-link,
+#app .announcement-note {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  justify-self: start;
+  width: fit-content;
+  max-width: 100%;
+  gap: 7px;
+  border: 0;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+#app .text-link:hover,
+#app .text-link:focus-visible,
+#app .all-catalog-link:hover,
+#app .all-catalog-link:focus-visible,
+#app .announcement-note:hover,
+#app .announcement-note:focus-visible {
+  text-decoration: none;
+}
+
+#app .link-label {
+  font: inherit;
+  line-height: inherit;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#app
+  :is(.text-link, .all-catalog-link, .announcement-note):is(:hover, :focus-visible)
+  > .link-label {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+#app :is(.text-link, .all-catalog-link, .announcement-note) > .link-arrow {
+  display: inline-block;
+  flex: 0 0 auto;
+  margin: 0;
+  width: auto;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+}
+
+#app .announcement-note {
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+#app .cart-summary > .text-link {
+  align-self: center;
+  justify-self: center;
+  margin-inline: auto;
+}
+
+/* The compact announcement has room for its main line only. */
+@media (max-width: 760px) {
+  #app .announcement-note {
+    display: none;
+  }
+}

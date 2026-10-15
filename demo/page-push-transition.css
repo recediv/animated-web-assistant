@@ -1,0 +1,54 @@
+/* One old viewport moves as a single sheet; the live character stays above it. */
+.page-push {
+  position: fixed;
+  z-index: 95;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  contain: layout paint style;
+}
+
+.page-push-panel {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #fcf7e9;
+  transform: translateX(0);
+  will-change: transform;
+  isolation: isolate;
+}
+
+.page-push-world {
+  position: absolute;
+  isolation: isolate;
+  background-color: #fcf7e9;
+}
+
+.page-push-world > .storybook-sky {
+  z-index: 0;
+}
+
+.page-push-world > #app {
+  position: relative;
+  z-index: 1;
+}
+
+.page-push .hero-card,
+.page-push .storybook-sky svg * {
+  animation-play-state: paused !important;
+}
+
+.page-push [tabindex],
+.page-push a,
+.page-push button,
+.page-push input,
+.page-push select,
+.page-push textarea {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-push {
+    display: none;
+  }
+}

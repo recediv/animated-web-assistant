@@ -1,0 +1,139 @@
+/* The inline layer uses the same size and placement as the original CSS image. */
+html[data-storybook-sky='mounted'] body {
+  position: relative;
+  isolation: isolate;
+  background-image: none;
+}
+.storybook-sky {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: max(1000px, 62.5vw);
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+.storybook-sky > svg {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: max(100%, 1600px);
+  height: auto;
+  transform: translateX(-50%);
+}
+.storybook-sky .storybook-cloud {
+  animation: storybook-cloud-drift 7.2s ease-in-out infinite alternate;
+  transform-box: view-box;
+}
+.storybook-sky .storybook-cloud-west {
+  --cloud-x: 26px;
+  animation-duration: 7.2s;
+  animation-delay: -2.4s;
+}
+.storybook-sky .storybook-cloud-high {
+  --cloud-x: 22px;
+  animation-duration: 8.4s;
+  animation-delay: -3.6s;
+}
+.storybook-sky .storybook-cloud-east {
+  --cloud-x: 28px;
+  animation-duration: 7.8s;
+  animation-delay: -4.8s;
+}
+.storybook-sky .storybook-cloud-low {
+  --cloud-x: 20px;
+  animation-duration: 6s;
+  animation-delay: -1.8s;
+}
+.storybook-sky .storybook-lantern {
+  transform-box: view-box;
+  transform-origin: 143px 628px;
+  animation: storybook-lantern-sway 4.5s ease-in-out infinite;
+  animation-delay: -1s;
+}
+.storybook-sky .storybook-sunlight {
+  animation: storybook-sunlight-glow 6s ease-in-out infinite;
+  animation-delay: -1s;
+}
+.storybook-sky .storybook-sun-core {
+  animation: storybook-sun-core-pulse 5.5s ease-in-out infinite;
+}
+.storybook-sky .storybook-sunrays {
+  transform-box: view-box;
+  transform-origin: 1320px 173px;
+  animation: storybook-sunrays-turn 8s ease-in-out infinite;
+}
+.storybook-sky[data-paused='true'] .storybook-cloud,
+.storybook-sky[data-paused='true'] .storybook-lantern,
+.storybook-sky[data-paused='true'] .storybook-sunlight,
+.storybook-sky[data-paused='true'] .storybook-sun-core,
+.storybook-sky[data-paused='true'] .storybook-sunrays {
+  animation-play-state: paused;
+}
+@keyframes storybook-cloud-drift {
+  from {
+    transform: translateX(calc(-1 * var(--cloud-x)));
+  }
+  to {
+    transform: translateX(var(--cloud-x));
+  }
+}
+@keyframes storybook-lantern-sway {
+  0%,
+  100% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+@keyframes storybook-sunlight-glow {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+@keyframes storybook-sun-core-pulse {
+  0%,
+  100% {
+    opacity: 0.88;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes storybook-sunrays-turn {
+  0%,
+  100% {
+    transform: rotate(-8deg);
+    opacity: 0.45;
+  }
+  50% {
+    transform: rotate(8deg);
+    opacity: 0.85;
+  }
+}
+@media (max-width: 760px) {
+  .storybook-sky {
+    height: 750px;
+  }
+  .storybook-sky > svg {
+    width: 1200px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .storybook-sky .storybook-cloud,
+  .storybook-sky .storybook-lantern,
+  .storybook-sky .storybook-sunlight,
+  .storybook-sky .storybook-sun-core,
+  .storybook-sky .storybook-sunrays {
+    animation: none;
+    transform: none;
+  }
+}

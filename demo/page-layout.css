@@ -1,0 +1,83 @@
+#app .simple-page {
+  width: min(var(--storybook-width), calc(100% - 48px));
+  padding: 48px;
+}
+
+#app .simple-page > h1 {
+  font-size: clamp(24px, 5.6vw, 64px);
+  letter-spacing: 0;
+  line-height: 1.15;
+}
+
+#app .contact-page > h1 {
+  white-space: nowrap;
+}
+
+#app .collection-section.fresh-collection h1 {
+  font-size: clamp(21px, 5.6vw, 50px);
+}
+
+#app .contact-layout {
+  width: 100%;
+  max-width: none;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(28px, 5vw, 72px);
+  align-items: start;
+}
+
+#app .contact-layout > div,
+#app .contact-layout > form {
+  min-width: 0;
+}
+
+#app .contact-layout .page-intro {
+  max-width: none;
+  margin: 0;
+}
+
+#app .contact-note {
+  max-width: none;
+  margin-top: 30px;
+  padding: 28px;
+  border: 1px solid #e5d5a7;
+  border-radius: 22px;
+  background: #fff8e7;
+}
+
+#app .contact-note h2 {
+  margin: 12px 0;
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+#app .contact-layout .checkout-form {
+  width: 100%;
+  padding: 28px;
+  border: 1px solid #cad8e2;
+  border-radius: 22px;
+  background: #f1f6fa;
+}
+
+@media (max-width: 760px) {
+  #app .simple-page {
+    width: calc(100% - 24px);
+    padding: 26px 16px 36px;
+  }
+
+  #app .contact-page > h1 {
+    font-size: clamp(22px, 5.6vw, 40px);
+  }
+
+  #app .contact-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 26px;
+    margin-top: 24px;
+  }
+
+  #app .contact-note,
+  #app .contact-layout .checkout-form {
+    padding: 20px;
+  }
+}

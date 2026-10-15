@@ -1,0 +1,227 @@
+/* Leave the sky and both sides of the forest open around the introduction. */
+#app .hero {
+  width: min(1120px, 100%);
+  min-height: 760px;
+  margin-inline: auto;
+  padding: 150px 40px 90px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.98fr) minmax(0, 1.12fr);
+  align-items: center;
+  gap: 44px;
+  overflow: visible;
+}
+
+#app .hero-copy {
+  padding: 26px 28px;
+  border-radius: 28px;
+}
+
+#app .hero h1 {
+  font-size: clamp(33px, 3.2vw, 46px);
+  white-space: nowrap;
+}
+
+#app .hero-actions {
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+#app .hero-actions .button {
+  font-size: 14px;
+  padding-inline: 20px;
+}
+
+#app .hero-visual {
+  width: 100%;
+  max-width: 500px;
+  height: 430px;
+  margin: 0;
+  transform: none;
+  justify-self: center;
+}
+
+#app .hero-orbit {
+  display: none;
+}
+
+#app .hero-card-back {
+  width: 210px;
+  top: 20px;
+  left: 20px;
+}
+
+#app .hero-card-side {
+  width: 216px;
+  top: 44px;
+  right: 20px;
+}
+
+#app .hero-card-front {
+  width: 244px;
+  top: 90px;
+  left: calc(50% - 122px);
+}
+
+#app .hero-edition {
+  top: -40px;
+  right: 8px;
+  bottom: auto;
+  left: auto;
+  translate: none;
+  transform: rotate(0deg);
+  padding: 5px 10px;
+  white-space: nowrap;
+  font-size: 12px;
+  border-radius: 10px;
+}
+
+#app .hero-sticker {
+  top: 306px;
+  right: 8px;
+  width: 104px;
+  height: 104px;
+  font-size: 10px;
+  letter-spacing: 0;
+  gap: 3px;
+  padding: 10px;
+}
+
+#app .hero-sticker .sticker-spark {
+  font-size: 30px;
+  line-height: 1;
+}
+
+#app .hero-sticker > span:not(.sticker-spark) {
+  max-width: 74px;
+  font-size: 10px;
+  line-height: 1.15;
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: normal;
+}
+
+#app .hero-tiny-star {
+  font-size: 24px;
+}
+
+#app .star-one {
+  top: -10px;
+  left: 62%;
+}
+
+#app .star-two {
+  top: 348px;
+  left: 8px;
+}
+
+@media (min-width: 761px) and (max-width: 1100px) {
+  #app .hero {
+    padding-inline: 40px;
+    gap: 24px;
+  }
+
+  #app .hero-copy {
+    padding-inline: 24px;
+  }
+
+  #app .hero h1 {
+    font-size: clamp(27px, 3.5vw, 38px);
+  }
+
+  #app .hero-card-back {
+    width: clamp(140px, 18.5vw, 186px);
+    left: 16px;
+  }
+
+  #app .hero-card-side {
+    width: clamp(148px, 19vw, 196px);
+    right: 16px;
+  }
+
+  #app .hero-card-front {
+    width: clamp(170px, 22vw, 220px);
+    left: calc(50% - clamp(85px, 11vw, 110px));
+    top: 80px;
+  }
+
+  #app .hero-sticker {
+    top: 230px;
+    right: 0;
+    width: 94px;
+    height: 94px;
+  }
+
+  #app .hero-visual {
+    height: clamp(320px, 40vw, 382px);
+  }
+}
+
+@media (max-width: 760px) {
+  #app .hero {
+    min-height: 0;
+    padding: 132px 16px 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 58px;
+    overflow: hidden;
+  }
+
+  #app .hero-copy {
+    width: 100%;
+    padding: 26px 22px;
+  }
+
+  #app .hero h1 {
+    font-size: clamp(23px, 7vw, 40px);
+  }
+
+  #app .hero-copy > p {
+    font-size: 14px;
+  }
+
+  #app .hero-visual {
+    width: min(100%, 360px);
+    height: 358px;
+    align-self: center;
+    flex-shrink: 0;
+  }
+
+  #app .hero-card-back {
+    width: 146px;
+    left: 20px;
+    top: 18px;
+  }
+
+  #app .hero-card-side {
+    width: 154px;
+    right: 20px;
+    top: 46px;
+  }
+
+  #app .hero-card-front {
+    width: 184px;
+    left: calc(50% - 92px);
+    top: 100px;
+  }
+
+  #app .hero-sticker {
+    top: 252px;
+    right: 12px;
+    width: 94px;
+    height: 94px;
+    font-size: 9px;
+  }
+
+  #app .hero-sticker > span:not(.sticker-spark) {
+    max-width: 66px;
+    font-size: 9px;
+  }
+
+  #app .hero-sticker .sticker-spark {
+    font-size: 26px;
+  }
+
+  #app .star-two {
+    top: 306px;
+  }
+}

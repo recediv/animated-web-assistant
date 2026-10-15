@@ -1,0 +1,187 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="book-land-title book-land-description">
+  <title id="book-land-title">Долина, в которой живут истории</title>
+  <desc id="book-land-description">Светлое сказочное утро: два раскидистых дерева, облака и замок среди зелёных холмов. Река приходит из-за левого края, проходит за деревом и течёт к переднему плану; тропинка от порога замка проходит по деревянному мосту и продолжается через лужайку.</desc>
+  <defs>
+    <linearGradient id="book-sky" x2="0" y2="1">
+      <stop stop-color="#e0eee3"/><stop offset=".38" stop-color="#fff0cf"/>
+    </linearGradient>
+    <linearGradient id="book-meadow" x2="0" y2="1">
+      <stop stop-color="#c6dda8"/><stop offset="1" stop-color="#a6c785"/>
+    </linearGradient>
+
+    <linearGradient id="book-leaf" x2="1" y2="1">
+      <stop stop-color="#b8d99c"/><stop offset="1" stop-color="#91b874"/>
+    </linearGradient>
+    <linearGradient id="book-bark" x2="1" y2="0">
+      <stop stop-color="#c5a785"/><stop offset=".5" stop-color="#e5c8a1"/><stop offset="1" stop-color="#d3b48d"/>
+    </linearGradient>
+    <!-- Only the last stretch of ground meets the page: the forest above stays intact. -->
+    <linearGradient id="book-paper-ground" gradientUnits="userSpaceOnUse" x1="0" y1="876" x2="0" y2="994">
+      <stop stop-color="#fcf7e9" stop-opacity="0"/>
+      <stop offset=".3" stop-color="#fcf7e9" stop-opacity=".12"/>
+      <stop offset=".6" stop-color="#fcf7e9" stop-opacity=".58"/>
+      <stop offset=".86" stop-color="#fcf7e9" stop-opacity=".94"/>
+      <stop offset="1" stop-color="#fcf7e9"/>
+    </linearGradient>
+
+    <g id="book-berry-spray" stroke="#819472" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M0 34 Q0 11 13-6 M3 22 Q-14 22-18 9 Q-3 6 3 22 M7 11 Q14-3 27 1 Q25 15 7 11" fill="#b6ca9c"/>
+      <g fill="#ce514a" stroke="#a43c3a"><circle cx="9" cy="25" r="6"/><circle cx="18" cy="19" r="6"/><circle cx="20" cy="30" r="6"/></g>
+      <path d="m9 19 0 3 m9-9 0 3 m2 8 0 3" stroke="#72906b"/>
+    </g>
+    <g id="book-grass" fill="none" stroke="#90aa7f" stroke-width="2" stroke-linecap="round">
+      <path d="M0 0 Q-1-12-8-17 M0 0 Q1-18 6-24 M1 0 Q10-11 15-11"/>
+    </g>
+
+  <clipPath id="book-bark-left-clip"><path d="M99 901 Q126 827 123 719 Q121 627 85 554 L111 531 Q145 582 157 644 Q163 574 194 539 L217 553 Q176 628 174 707 Q169 819 197 899 Q159 921 99 901Z"/><path d="M136 698 Q85 651 54 563 L75 553 Q94 618 143 658 M154 742 Q190 673 219 637 Q236 611 234 574 L256 585 Q252 635 232 663 Q193 726 168 772"/></clipPath><clipPath id="book-bark-right-clip"><path d="M1477 942 Q1504 864 1497 756 Q1494 675 1459 621 L1482 603 Q1518 651 1530 722 Q1530 669 1562 626 L1586 644 Q1552 712 1551 787 Q1547 871 1576 949 Q1527 967 1477 942Z"/><path d="M1511 784 Q1473 743 1427 692 Q1415 657 1412 627 L1435 630 Q1447 692 1483 718 L1517 755 M1543 742 Q1571 704 1615 696 L1620 719 Q1576 726 1550 774"/></clipPath><g id="book-leaf-spray" fill="#89b76d" stroke="#66865b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M0 25 Q-5 8-23 3 Q-25 20 0 25Z M1 21 Q7 0 24-3 Q29 13 1 21Z M-1 5 Q-9-8-23-10 Q-23 4-1 5Z M0 2 Q3-13 15-20 Q22-8 0 2Z"/>
+      <path d="M0 29 Q3 9-3-12 M0 23-15 12 M1 17 15 5 M-2 3-16-3 M-1-1 10-13" fill="none"/>
+    </g><linearGradient id="book-water" gradientUnits="userSpaceOnUse" x1="700" y1="730" x2="1240" y2="1000"><stop stop-color="#c9e4df"/><stop offset="1" stop-color="#8cc8ca"/></linearGradient><clipPath id="book-river-clip"><path d="M-119.82 741 C-99.76 741.17 -57.4 740.35 0.55 742.01 C58.5 743.68 154.85 752.16 227.87 751 C300.9 749.84 364.6 741.55 438.71 735.06 C512.82 728.56 602.16 714.34 672.54 712.01 C742.92 709.67 804.58 717.86 861 721.03 C917.42 724.2 974.87 729.49 1011.06 731.03 C1047.25 732.57 1059.87 727.18 1078.12 730.24 C1096.37 733.31 1110.34 740.37 1120.56 749.44 C1130.77 758.52 1135.53 774.65 1139.43 784.69 C1143.33 794.73 1140.85 801.33 1143.97 809.66 C1147.09 818 1148.75 827.47 1158.16 834.7 C1167.57 841.92 1177.69 844.04 1200.44 853.01 C1223.2 861.98 1260.29 875.45 1294.67 888.51 C1329.05 901.56 1388.06 924.19 1406.74 931.33 C1444.1 945.61 1600 1010 1750 1080 L1450 1340 C1350 1260 1287.2 1177.3 1253.26 1128.67 C1241.94 1112.47 1207.61 1061.77 1185.33 1031.49 C1163.05 1001.21 1137.47 973.02 1119.56 946.99 C1101.64 920.96 1083.43 897.75 1077.84 875.3 C1072.25 852.86 1083.91 825.67 1086.03 812.34 C1088.15 799 1090.67 800.94 1090.57 795.31 C1090.47 789.68 1088.56 782.82 1085.44 778.56 C1082.33 774.3 1084.63 771.35 1071.88 769.76 C1059.13 768.16 1044.75 771.1 1008.94 768.97 C973.13 766.84 913.42 760.8 857 756.97 C800.59 753.14 739.41 744.16 670.46 745.99 C601.51 747.82 516.68 761.94 443.29 767.94 C369.9 773.95 304.1 782.33 230.13 782 C156.15 781.67 57.84 769.15 -0.55 765.99 C-58.93 762.82 -100.24 763.5 -120.18 763Z"/></clipPath></defs>
+
+  <rect width="1600" height="1000" fill="url(#book-sky)"/>
+  <g class="storybook-sun">
+  <circle class="storybook-sunlight" cx="1320" cy="173" r="65" fill="#f3ce72" opacity=".58"/>
+  <g class="storybook-sunrays" fill="none" stroke="#c6a048" stroke-width="2.4" stroke-linecap="round" opacity=".55">
+    <path d="M1320 94V86 M1359.5 104.6 1363.5 97.7 M1388.4 133.5 1395.3 129.5 M1399 173H1407 M1388.4 212.5 1395.3 216.5 M1359.5 241.4 1363.5 248.3 M1320 252V260 M1280.5 241.4 1276.5 248.3 M1251.6 212.5 1244.7 216.5 M1241 173H1233 M1251.6 133.5 1244.7 129.5 M1280.5 104.6 1276.5 97.7"/>
+  </g>
+  <circle class="storybook-sun-core" cx="1320" cy="173" r="48" fill="#f8df93"/>
+  </g>
+  <g fill="#fffbee" stroke="#bfc8aa" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path class="storybook-cloud storybook-cloud-west" d="M-29 164 Q-14 126 31 135 Q45 91 93 109 Q125 62 178 93 Q213 65 257 99 Q304 89 321 126 Q370 110 400 146 Q452 139 462 177 Q471 211 428 220 H-14 Q-53 208-29 164Z"/>
+    <path class="storybook-cloud storybook-cloud-high" d="M767 117 Q780 89 814 93 Q826 62 858 65 Q879 34 918 52 Q960 46 975 79 Q1019 70 1034 102 Q1080 95 1095 125 Q1104 149 1077 157 H784 Q753 146 767 117Z"/>
+    <path class="storybook-cloud storybook-cloud-east" d="M1194 270 Q1193 242 1227 239 Q1234 201 1273 208 Q1291 171 1337 192 Q1367 175 1399 201 Q1444 193 1458 229 Q1493 215 1527 242 Q1577 232 1593 274 Q1626 273 1631 299 Q1632 328 1599 332 H1218 Q1180 321 1194 270Z"/>
+    <path class="storybook-cloud storybook-cloud-low" d="M459 315 Q465 295 491 297 Q504 267 535 278 Q554 257 582 274 Q614 267 628 293 Q658 288 669 309 Q680 334 650 341 H479 Q448 335 459 315Z" opacity=".65" stroke-width="1.8"/>
+  </g>
+  <g fill="none" stroke="#d2c49e" stroke-width="2" stroke-linecap="round">
+    <path class="storybook-cloud storybook-cloud-west" d="M46 178 Q65 164 85 173 M258 176 Q279 160 301 173"/>
+    <path class="storybook-cloud storybook-cloud-high" d="M818 123 Q835 112 853 120"/>
+    <path class="storybook-cloud storybook-cloud-east" d="M1298 286 Q1320 269 1344 280 M1467 284 Q1486 271 1507 282"/>
+  </g>
+  <g fill="none" stroke="#a6b6a3" stroke-width="2.1" stroke-linecap="round">
+    <path d="M1086 363 Q1095 353 1104 363 Q1115 352 1124 362 M1140 389 Q1148 381 1156 389 Q1165 381 1173 389"/>
+  </g>
+
+  <path d="M0 716 Q145 629 295 671 Q419 628 576 685 Q757 647 885 674 Q1037 577 1162 615 Q1334 548 1458 603 Q1541 618 1600 657 V1000 H0Z" fill="#d1dfbd"/>
+  <path d="M0 765 Q180 666 346 731 Q569 660 759 738 Q978 640 1185 691 Q1357 612 1600 700 V1000 H0Z" fill="#bed7a7"/>
+
+  <!-- A distant book-sized castle, set to the right of the open reading space. -->
+  <g stroke="#8f9280" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M1191 680 Q1255 691 1320 681" fill="none" stroke="#c1d0ae" stroke-width="9"/>
+    <path d="M1193 572 Q1209 563 1234 572 L1238 679 Q1217 685 1191 678Z" fill="#f0dec1"/>
+    <path d="M1183 574 Q1206 554 1217 516 Q1228 551 1245 574 Q1215 584 1183 574Z" fill="#b6c9c5"/>
+    <path d="M1217 516 V486 Q1233 481 1247 491 L1217 500" fill="#e7c586"/>
+    <path d="M1233 605 Q1261 597 1293 605 L1296 682 H1237Z" fill="#f8eacc"/>
+    <path d="M1228 606 1264 581 1299 606Z" fill="#cfbcb0"/>
+    <path d="M1286 554 Q1304 547 1323 554 L1320 680 H1285Z" fill="#ead9bc"/>
+    <path d="M1277 556 Q1294 540 1310 504 Q1315 532 1333 556 Q1303 565 1277 556Z" fill="#bdcba9"/>
+    <path d="M1310 503 V478 Q1327 472 1339 484 L1310 492" fill="#c9d9c7"/>
+    <path d="M1255 680 V655 Q1255 637 1266 638 Q1278 638 1278 655 V681Z" fill="#b5b7a1"/>
+    <path d="M1205 605 V594 Q1213 582 1222 594 V605Z M1295 588 V576 Q1304 565 1313 576 V588Z" fill="#adbfbd"/>
+    <path d="M1208 596 H1219 M1214 590 V603 M1298 580 H1310 M1304 573 V586" stroke="#f8edd5" stroke-width="1.5"/>
+    <path d="M1246 619 H1257 V629 H1246Z M1274 618 H1285 V628 H1274Z" fill="#b5c7c4" stroke-width="1.5"/>
+    <path d="M1198 638 H1209 M1221 648 H1232 M1289 624 H1297 M1308 644 H1317" stroke="#d3bd9e" stroke-width="1.4"/>
+    <path d="M1199 569 Q1209 556 1215 542 M1290 551 Q1304 536 1309 521" fill="none" stroke="#e5efe2" stroke-width="1.5"/>
+    <path d="M1266 646 V678 M1262 655 H1266" fill="none" stroke="#929b85" stroke-width="1.5"/>
+  </g>
+
+  <path d="M0 803 Q204 696 389 747 Q572 796 759 745 Q937 696 1114 735 Q1369 675 1600 762 V1000 H0Z" fill="url(#book-meadow)"/>
+
+
+
+
+  <path d="M0 944 Q183 818 397 879 Q551 921 619 1000 H0Z" fill="#aac981"/>
+  <path d="M1600 884 Q1467 811 1369 872 Q1402 932 1479 1000 H1600Z" fill="#a3c47d"/>
+
+
+
+
+
+
+
+
+
+  <!-- Soft, irregular crowns frame the scene without filling the centre. -->
+  <g data-part="river-route"><g data-part="stream-from-left"><path data-part="stream-water" d="M-119.82 741 C-99.76 741.17 -57.4 740.35 0.55 742.01 C58.5 743.68 154.85 752.16 227.87 751 C300.9 749.84 364.6 741.55 438.71 735.06 C512.82 728.56 602.16 714.34 672.54 712.01 C742.92 709.67 804.58 717.86 861 721.03 C917.42 724.2 974.87 729.49 1011.06 731.03 C1047.25 732.57 1059.87 727.18 1078.12 730.24 C1096.37 733.31 1110.34 740.37 1120.56 749.44 C1130.77 758.52 1135.53 774.65 1139.43 784.69 C1143.33 794.73 1140.85 801.33 1143.97 809.66 C1147.09 818 1148.75 827.47 1158.16 834.7 C1167.57 841.92 1177.69 844.04 1200.44 853.01 C1223.2 861.98 1260.29 875.45 1294.67 888.51 C1329.05 901.56 1388.06 924.19 1406.74 931.33 C1444.1 945.61 1600 1010 1750 1080 L1450 1340 C1350 1260 1287.2 1177.3 1253.26 1128.67 C1241.94 1112.47 1207.61 1061.77 1185.33 1031.49 C1163.05 1001.21 1137.47 973.02 1119.56 946.99 C1101.64 920.96 1083.43 897.75 1077.84 875.3 C1072.25 852.86 1083.91 825.67 1086.03 812.34 C1088.15 799 1090.67 800.94 1090.57 795.31 C1090.47 789.68 1088.56 782.82 1085.44 778.56 C1082.33 774.3 1084.63 771.35 1071.88 769.76 C1059.13 768.16 1044.75 771.1 1008.94 768.97 C973.13 766.84 913.42 760.8 857 756.97 C800.59 753.14 739.41 744.16 670.46 745.99 C601.51 747.82 516.68 761.94 443.29 767.94 C369.9 773.95 304.1 782.33 230.13 782 C156.15 781.67 57.84 769.15 -0.55 765.99 C-58.93 762.82 -100.24 763.5 -120.18 763Z" fill="url(#book-water)"/><g data-part="stream-banks" fill="none" stroke="#b2c99a" stroke-width="1.6" stroke-linecap="round" opacity=".7"><path d="M-119.82 741 C-99.76 741.17 -57.4 740.35 0.55 742.01 C58.5 743.68 154.85 752.16 227.87 751 C300.9 749.84 364.6 741.55 438.71 735.06 C512.82 728.56 602.16 714.34 672.54 712.01 C742.92 709.67 804.58 717.86 861 721.03 C917.42 724.2 974.87 729.49 1011.06 731.03 C1047.25 732.57 1059.87 727.18 1078.12 730.24 C1096.37 733.31 1110.34 740.37 1120.56 749.44 C1130.77 758.52 1135.53 774.65 1139.43 784.69 C1143.33 794.73 1140.85 801.33 1143.97 809.66 C1147.09 818 1148.75 827.47 1158.16 834.7 C1167.57 841.92 1177.69 844.04 1200.44 853.01 C1223.2 861.98 1260.29 875.45 1294.67 888.51 C1329.05 901.56 1388.06 924.19 1406.74 931.33 C1444.1 945.61 1600 1010 1750 1080"/><path d="M-120.18 763 C-100.24 763.5 -58.93 762.82 -0.55 765.99 C57.84 769.15 156.15 781.67 230.13 782 C304.1 782.33 369.9 773.95 443.29 767.94 C516.68 761.94 601.51 747.82 670.46 745.99 C739.41 744.16 800.59 753.14 857 756.97 C913.42 760.8 973.13 766.84 1008.94 768.97 C1044.75 771.1 1059.13 768.16 1071.88 769.76 C1084.63 771.35 1082.33 774.3 1085.44 778.56 C1088.56 782.82 1090.47 789.68 1090.57 795.31 C1090.67 800.94 1088.15 799 1086.03 812.34 C1083.91 825.67 1072.25 852.86 1077.84 875.3 C1083.43 897.75 1101.64 920.96 1119.56 946.99 C1137.47 973.02 1163.05 1001.21 1185.33 1031.49 C1207.61 1061.77 1241.94 1112.47 1253.26 1128.67 C1287.2 1177.3 1350 1260 1450 1340"/></g><g data-part="river-reflections" clip-path="url(#book-river-clip)" fill="none" stroke="#eef7ed" stroke-width="2.3" stroke-linecap="round" opacity=".85"><path d="M350 759 H369 M622 736 Q638 738 654 736 M1052 750 H1070 M1090 844 Q1103 850 1118 846 M1192 949 Q1217 952 1239 949"/><path d="M1124 856 H1134 M1257 964 H1274"/></g></g><path data-part="stream-far-trail" d="M1274 681 C1273.93 683.25 1275.18 689.61 1273.59 694.53 C1272 699.45 1268.71 705.18 1264.45 710.53 C1260.2 715.89 1255.3 719.84 1248.05 726.66 C1240.81 733.48 1229.03 742.5 1220.97 751.45 C1212.91 760.41 1205.43 773.16 1199.7 780.38 C1193.97 787.61 1192.23 790.22 1186.6 794.8 C1180.97 799.38 1169.36 805.68 1165.92 807.86 L1154.08 788.14 C1157.3 786.32 1168.36 780.62 1173.4 777.2 C1178.44 773.78 1178.7 774.06 1184.3 767.62 C1189.91 761.17 1198.42 747.59 1207.03 738.55 C1215.64 729.5 1228.53 719.85 1235.95 713.34 C1243.37 706.83 1247.8 703.45 1251.55 699.47 C1255.29 695.49 1257.33 692.55 1258.41 689.47 C1259.49 686.39 1258.07 682.41 1258 681Z" fill="#ecdfb8"/><path data-part="stream-near-trail" d="M1079.04 808.34 C1072.89 811.59 1053.68 819.43 1042.18 827.84 C1030.68 836.25 1022.56 846.88 1010.03 858.82 C997.49 870.77 984.99 885.24 966.98 899.51 C948.97 913.78 917.62 928.69 901.98 944.45 C886.34 960.22 884.9 975.56 873.14 994.09 C861.37 1012.63 838.34 1045.39 831.38 1055.64 L772.62 1004.36 C781.66 996.28 810.29 971.71 826.86 955.91 C843.43 940.1 852.32 924.12 872.02 909.55 C891.71 894.98 925.36 880.89 945.02 868.49 C964.68 856.1 976.17 845.57 989.97 835.18 C1003.77 824.79 1014.66 814.08 1027.82 806.16 C1040.99 798.24 1062.11 790.74 1068.96 787.66Z" fill="#ecdfb8"/><g fill="none" stroke="#d0c099" stroke-width="1.4" stroke-linecap="round" opacity=".7"><path d="M1230 739 1220 748 M1192 784 1185 791 M1028 831 Q1017 841 1006 847 M932 907 919 916 M863 971 852 985"/></g><path data-part="castle-threshold" d="M1256 681 H1277 L1279 685 H1254Z" fill="#e5d6b6" stroke="#b1ae95" stroke-width="1"/><g data-part="stream-bridge" stroke="#a09273" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M1068 813 Q1117 802 1166 813" fill="none" stroke="#779c88" stroke-width="8" opacity=".15"/>
+  <path d="M1068 783 Q1117 771 1166 783 L1166 805 Q1117 793 1068 805Z" fill="#f0dfb9"/>
+  <path d="M1068 805 Q1117 793 1166 805 V812 Q1117 800 1068 812Z" fill="#d2b88a"/>
+  <path d="M1073 782 V760 M1098 777 V755 M1135 777 V755 M1161 782 V760" fill="none" stroke-width="2.7"/>
+  <path d="M1073 760 Q1117 748 1161 760" fill="none" stroke-width="3"/>
+  <path d="M1084 780 V802 M1100 777 V799 M1116 777 V798 M1132 777 V799 M1148 780 V802" fill="none" stroke="#c4ae84" stroke-width="1.3"/>
+  <path d="M1071 805 V785 M1098 800 V779 M1135 800 V779 M1163 805 V785" fill="none" stroke-width="2.7"/>
+  <path d="M1071 785 Q1117 773 1163 785" fill="none" stroke-width="3"/>
+  <path d="M1071 812 V818 M1163 812 V818" fill="none" stroke-width="2.7"/>
+</g></g><g stroke="#6e8a57" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M99 901 Q126 827 123 719 Q121 627 85 554 L111 531 Q145 582 157 644 Q163 574 194 539 L217 553 Q176 628 174 707 Q169 819 197 899 Q159 921 99 901Z" fill="url(#book-bark)" stroke="#a38e6e"/>
+    <path d="M136 698 Q85 651 54 563 L75 553 Q94 618 143 658 M154 742 Q190 673 219 637 Q236 611 234 574 L256 585 Q252 635 232 663 Q193 726 168 772" fill="url(#book-bark)" stroke="#a38e6e"/>
+    <!-- Bark marks belong beneath the leaves, so their ends cannot float over the crown. -->
+    <path d="M139 896 Q158 826 150 759 M163 840 Q164 816 158 797 M137 892 Q124 875 109 883 M177 895 Q182 878 197 884" fill="none" stroke="#b49876" stroke-width="2" clip-path="url(#book-bark-left-clip)"/>
+    <path d="M138 754 Q129 743 133 733 Q140 725 147 734 Q153 746 144 754Z" fill="#bf9e77" stroke="#b09370" stroke-width="1.5" clip-path="url(#book-bark-left-clip)"/>
+    <path d="M139 740 Q143 735 144 743" fill="none" stroke="#e8ceaa" stroke-width="1.5" clip-path="url(#book-bark-left-clip)"/>
+    <path d="M-67 508 Q-83 451-35 425 Q-53 366 7 343 Q7 293 67 287 Q101 245 152 272 Q205 256 231 303 Q291 291 309 346 Q361 359 350 411 Q392 453 355 494 Q364 551 302 567 Q274 614 221 592 Q173 625 127 600 Q69 620 37 581 Q-27 601-46 550 Q-83 539-67 508Z" fill="url(#book-leaf)"/>
+    <path d="M-15 465 Q-25 417 17 400 Q12 356 59 347 Q99 326 126 354 Q160 331 192 357 Q229 335 256 369 Q297 371 299 411" fill="none" stroke="#c9dab9" stroke-width="16"/><path d="M11 530 Q30 548 53 537 M98 584 Q123 567 147 577 M241 575 Q260 547 285 550 M309 483 Q327 459 310 436 M44 385 Q53 370 68 373 M179 302 Q194 310 198 329" fill="none" stroke="#7fa364" stroke-width="2"/>
+
+    <path d="M1477 942 Q1504 864 1497 756 Q1494 675 1459 621 L1482 603 Q1518 651 1530 722 Q1530 669 1562 626 L1586 644 Q1552 712 1551 787 Q1547 871 1576 949 Q1527 967 1477 942Z" fill="url(#book-bark)" stroke="#a38e6e"/>
+    <path d="M1511 784 Q1473 743 1427 692 Q1415 657 1412 627 L1435 630 Q1447 692 1483 718 L1517 755 M1543 742 Q1571 704 1615 696 L1620 719 Q1576 726 1550 774" fill="url(#book-bark)" stroke="#a38e6e"/>
+    <path d="M1521 945 Q1530 865 1519 810 M1537 869 Q1538 842 1534 828 M1518 722 Q1512 683 1497 666 M1505 938 Q1489 922 1481 935 M1553 943 Q1568 932 1579 943" fill="none" stroke="#b49876" stroke-width="2" clip-path="url(#book-bark-right-clip)"/>
+    <path d="M1380 548 Q1353 504 1390 469 Q1384 419 1435 408 Q1453 359 1503 380 Q1546 352 1582 390 Q1646 379 1660 437 Q1701 451 1680 504 Q1719 553 1677 589 Q1679 645 1620 650 Q1590 687 1541 666 Q1500 702 1455 671 Q1402 688 1379 641 Q1325 626 1346 577 Q1338 554 1380 548Z" fill="url(#book-leaf)"/>
+    <path d="M1395 524 Q1384 476 1423 462 Q1424 428 1457 434 Q1486 399 1518 421 Q1551 400 1581 436 Q1612 428 1636 452" fill="none" stroke="#cfdebd" stroke-width="15"/><path d="M1394 602 Q1416 627 1438 615 M1465 660 Q1480 639 1505 646 M1568 644 Q1596 652 1612 631 M1464 403 Q1465 422 1482 428 M1568 496 Q1589 478 1606 493" fill="none" stroke="#7fa364" stroke-width="2"/>
+
+  </g><g opacity=".9">
+    <use href="#book-leaf-spray" transform="translate(41 444) rotate(-34) scale(1.1)"/>
+    <use href="#book-leaf-spray" transform="translate(243 479) rotate(24) scale(1.2)"/>
+    <use href="#book-leaf-spray" transform="translate(136 390) rotate(-14)"/>
+    <use href="#book-leaf-spray" transform="translate(1441 547) rotate(-23) scale(1.15)"/>
+    <use href="#book-leaf-spray" transform="translate(1574 565) rotate(31) scale(1.3)"/>
+    <use href="#book-leaf-spray" transform="translate(1522 461) rotate(14)"/>
+  </g>
+
+
+
+
+
+  <!-- A lamp hangs from a peg on the exposed trunk, below the crown. -->
+  <g stroke="#9a8a6b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="143" cy="628" r="2.8" fill="#a6a477" stroke-width="1.5"/>
+    <g class="storybook-lantern">
+    <path d="M143 628 Q151 652 146 680" fill="none"/>
+    <path d="M140 680 Q148 672 155 680 L162 719 Q149 729 134 719Z" fill="#f5d07e"/>
+    <path d="M131 686 Q148 681 162 686 L164 691 H132Z M134 720 Q148 725 162 720 L159 728 H137Z" fill="#a6a477"/>
+    <path d="M143 694 140 716 M152 694 155 716" stroke="#fff4d6" stroke-width="2.3"/>
+    </g>
+  </g>
+
+  <!-- Low, curved banks settle into the same warm paper as the page below.
+       Foreground berries, mushrooms and grass remain above these banks. -->
+  <g data-part="paper-ground-transition">
+    <path d="M0 890 Q134 918 291 899 Q471 884 640 911 Q822 938 1006 910 Q1217 886 1389 923 Q1519 944 1600 908 V1000 H0Z" fill="url(#book-paper-ground)"/>
+    <path d="M0 986 Q150 972 306 986 Q510 997 706 983 Q901 972 1092 987 Q1319 999 1600 984 V1000 H0Z" fill="#fcf7e9"/>
+    <path d="M372 948 Q464 930 573 951 M729 966 Q842 950 944 962" fill="none" stroke="#e7e0c7" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>
+  </g>
+
+  <g stroke="#8e9878" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 956 Q53 909 88 932 Q121 905 154 941 Q183 930 207 958Z" fill="#a9c598"/>
+    <path d="M1370 970 Q1399 928 1427 949 Q1450 919 1477 947 Q1516 931 1530 972Z" fill="#abc69a"/>
+    <path d="M52 942 Q61 945 67 956 M91 937 Q84 946 83 957 M126 944 Q135 948 139 958 M1394 956 Q1400 954 1406 960 M1458 946 Q1453 956 1454 966" fill="none" stroke="#88a676" stroke-width="1.7"/>
+  </g>
+  <g stroke="#ad9677" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M299 941 Q301 920 298 904 H311 Q307 924 314 941 Q308 947 299 941Z" fill="#fff0cf"/>
+    <path d="M278 907 Q280 875 306 876 Q330 882 334 909 Q306 918 278 907Z" fill="#cf5d51" stroke="#9d4944"/>
+    <path d="M283 909 Q305 916 330 910" fill="none" stroke="#efc9a8"/>
+    <path d="M342 950 Q344 931 342 920 H350 Q348 936 352 950Z" fill="#fff0cf"/>
+    <path d="M327 921 Q331 900 347 902 Q366 905 370 925 Q348 933 327 921Z" fill="#dc7554" stroke="#b1543e"/>
+    <path d="M1395 914 Q1397 896 1394 880 H1406 Q1402 899 1409 914 Q1400 920 1395 914Z" fill="#fff0cf"/>
+    <path d="M1377 882 Q1379 855 1400 855 Q1425 859 1428 885 Q1402 893 1377 882Z" fill="#cf5d51" stroke="#9d4944"/>
+    <g fill="#fae9cc" stroke="none"><ellipse cx="295" cy="890" rx="5" ry="3.5" transform="rotate(-20 295 890)"/><ellipse cx="318" cy="899" rx="4" ry="3"/><ellipse cx="1392" cy="866" rx="4" ry="3"/><ellipse cx="1413" cy="876" rx="5" ry="3.5"/><ellipse cx="342" cy="912" rx="3" ry="2"/></g>
+  </g>
+  <use href="#book-berry-spray" transform="translate(61 876) rotate(-8) scale(1.2)"/>
+  <use href="#book-berry-spray" transform="translate(1426 920) rotate(13) scale(1.15)"/>
+  <use href="#book-berry-spray" transform="translate(1564 935) rotate(-18)"/>
+  <g>
+    <use href="#book-grass" transform="translate(245 965)"/>
+    <use href="#book-grass" transform="translate(394 950) scale(.9)"/>
+    <use href="#book-grass" transform="translate(991 867) scale(.8)"/>
+    <use href="#book-grass" transform="translate(1340 951) scale(1.1)"/>
+    <use href="#book-grass" transform="translate(1467 897) scale(.8)"/>
+  </g>
+</svg>

@@ -1,0 +1,45 @@
+{
+  "name": "anime-shop-assistant",
+  "version": "1.0.0",
+  "author": "Shutnic[mz]",
+  "license": "GPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.16.0 <23"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:vite": "vite --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write src demo tests scripts *.json *.ts",
+    "test": "node scripts/test-unit.mjs",
+    "test:integration": "node tests/integration/runtime.mjs",
+    "test:pages": "node tests/integration/page-transitions.mjs",
+    "test:e2e": "playwright test",
+    "export:assets": "node scripts/export-assets.mjs",
+    "validate:config": "node scripts/validate-config.mjs",
+    "build": "npm run validate:config && npm run export:assets && node scripts/build.mjs && node scripts/copy-assets.mjs",
+    "build:pages": "npm run build",
+    "check:pages": "node tests/integration/github-pages.mjs",
+    "preview": "vite preview --host 127.0.0.1",
+    "check:size": "node scripts/check-size.mjs",
+    "check:exports": "node scripts/check-exports.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.1",
+    "@playwright/test": "1.56.1",
+    "@types/node": "22.18.12",
+    "css-tree": "3.2.1",
+    "eslint": "9.39.1",
+    "globals": "16.4.0",
+    "jsdom": "27.1.0",
+    "prettier": "3.6.2",
+    "sharp": "0.34.4",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.46.2",
+    "vite": "7.1.12",
+    "vitest": "3.2.4"
+  }
+}

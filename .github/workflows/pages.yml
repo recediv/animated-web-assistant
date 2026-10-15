@@ -1,0 +1,87 @@
+name: Publish storybook site
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - README.md
+      - README.en.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Separate skipped runs so they cannot replace a queued deployment.
+concurrency:
+  group: >-
+    ${{ (github.event_name == 'workflow_dispatch' ||
+    github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) &&
+    'github-pages' || format('pages-skip-{0}', github.run_id) }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    uses: ./.github/workflows/ci.yml
+    with:
+      pages_release: true
+    permissions:
+      contents: read
+
+  build:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+      - name: Check transitions below the published path
+        run: node tests/integration/page-transitions.mjs --base "${SITE_BASE_PATH:-/}"
+        env:
+          SITE_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+      - name: Check path collision with catalog route
+        run: node tests/integration/page-transitions.mjs --base /catalog/
+      - name: Build site
+        run: npm run build:pages
+        env:
+          SITE_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+      - name: Check bundle size
+        run: npm run check:size
+      - name: Check library exports
+        run: npm run check:exports
+      - name: Check distribution assets
+        run: node tests/integration/distribution-assets.mjs
+      - name: Check static routes and subdirectory hosting
+        run: node tests/integration/github-pages.mjs
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy site
+        id: deployment
+        uses: actions/deploy-pages@v4

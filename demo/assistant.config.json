@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "enabled": true,
+  "locale": "ru-RU",
+  "title": "Мохлик Тропник",
+  "position": "right",
+  "behavior": "lively",
+  "disabledPageTypes": ["payment", "account"],
+  "routes": {
+    "catalog": "/catalog",
+    "newArrivals": "/new",
+    "cart": "/cart",
+    "delivery": "/delivery",
+    "contacts": "/contacts"
+  },
+  "categories": [
+    { "id": "listolesye", "label": "Листолесье", "href": "/catalog?category=listolesye" },
+    { "id": "iskrovel", "label": "Искровель", "href": "/catalog?category=iskrovel" },
+    { "id": "aerolin", "label": "Аэролин", "href": "/catalog?category=aerolin" },
+    { "id": "lunara", "label": "Лунара", "href": "/catalog?category=lunara" }
+  ],
+  "assets": {
+    "poster": "/assistant/1.0.0/poster.webp",
+    "atlas": "/assistant/1.0.0/atlas.webp",
+    "manifest": "/assistant/1.0.0/atlas.json",
+    "cssUrl": "/assistant/1.0.0/assistant.css"
+  },
+  "timings": {
+    "greetingDelayMs": 1500,
+    "greetingRepeatDays": 30,
+    "sleepAfterMs": 90000,
+    "cartReactionCooldownMs": 5000,
+    "idleDesktopMs": 3500,
+    "idleCompactMs": 5000,
+    "attentionDelayMs": 18000
+  },
+  "analyticsEnabled": false,
+  "texts": {
+    "greeting": "Привет, я Мохлик Тропник. Посижу рядом, пока ты выбираешь."
+  }
+}

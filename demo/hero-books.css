@@ -1,0 +1,57 @@
+/* Individual properties preserve the book layout and its base transform. */
+.hero .hero-card {
+  --book-float: 8.5px;
+  --book-sway: 1deg;
+  margin-top: 0;
+  animation: lumoli-hero-book-float 10.8s ease-in-out infinite;
+  animation-delay: -0.9s;
+  transition: margin-top 280ms ease-out;
+}
+
+.hero .hero-card-back {
+  --book-float: 7px;
+  --book-sway: -1.2deg;
+  animation-duration: 11.4s;
+  animation-delay: -3.1s;
+}
+
+.hero .hero-card-side {
+  --book-float: 10px;
+  --book-sway: 1.3deg;
+  animation-duration: 9.6s;
+  animation-delay: -5.7s;
+}
+
+/* The existing sky controller pauses on hidden, pagehide and reduced motion. */
+.storybook-sky[data-paused='true'] ~ #app .hero-card {
+  animation-play-state: paused;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hero .hero-card:hover {
+    margin-top: -5px;
+  }
+}
+
+@keyframes lumoli-hero-book-float {
+  0%,
+  100% {
+    translate: 0 0;
+    rotate: calc(-1 * var(--book-sway));
+  }
+  50% {
+    translate: 0 calc(-1 * var(--book-float));
+    rotate: var(--book-sway);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero .hero-card,
+  .hero .hero-card:hover {
+    animation: none;
+    translate: none;
+    rotate: none;
+    transition: none;
+    margin-top: 0;
+  }
+}

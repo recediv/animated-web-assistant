@@ -1,0 +1,62 @@
+/* One native modal surface contains the drawer and the original live companion. */
+.shop-dialog.cart-companion-surface {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: hidden;
+}
+.cart-companion-surface::backdrop { background: #28443855; }
+.cart-companion-surface > anime-shop-assistant { position: relative; z-index: 2; }
+.cart-companion-surface > .cart-companion-panel {
+  position: absolute;
+  z-index: 1;
+  inset: 16px 16px 16px auto;
+  width: min(490px, calc(100vw - 32px));
+  height: calc(100dvh - 32px);
+  max-height: none;
+  max-width: none;
+  margin: 0;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 2px solid var(--ink, #284438);
+  border-radius: 23px 18px 25px 17px;
+  background: var(--surface, #fff9e8);
+  color: var(--ink, #284438);
+  box-shadow: 6px 8px 0 #41374340;
+}
+.cart-companion-panel > .dialog-heading { flex: 0 0 auto; }
+.cart-companion-panel > #cart-dialog-content {
+  min-height: min(160px, 50%);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+/* Let the resting pocket shrink to keep cart controls scrollable in low windows. */
+.cart-companion-pocket {
+  flex: 0 1 calc(144px + var(--cart-companion-reserved, 0px));
+  pointer-events: none;
+}
+@media (max-width: 760px) {
+  .cart-companion-surface > .cart-companion-panel {
+    inset: 8px;
+    width: calc(100vw - 16px);
+    height: calc(100dvh - 16px);
+    padding: 24px 20px;
+    border-radius: 20px 15px 22px 14px;
+  }
+  .cart-companion-pocket { flex-basis: calc(112px + var(--cart-companion-reserved, 0px)); }
+}
+@media (max-width: 380px) {
+  .cart-companion-surface > .cart-companion-panel { padding: 20px 16px; }
+}
