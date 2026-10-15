@@ -1028,7 +1028,14 @@ describe('initialization and lifecycle boundaries', () => {
       Object.assign(event, { pointerId: 7, pointerType, clientX: x, clientY: y, button: 0, isPrimary: true });
       view.launcher.dispatchEvent(event);
     };
+    const image = document.createElement('img'); document.body.append(image);
+    const nativeDrag = () => {
+      const event = new Event('dragstart', { bubbles: true, cancelable: true });
+      image.dispatchEvent(event); return event.defaultPrevented;
+    };
+    expect(nativeDrag()).toBe(false);
     pointer('pointerdown');
+    expect(nativeDrag()).toBe(true);
     const played = animationCalls.play.mock.calls.length;
     instance.setInteractionHold!(true); instance.setInteractionHold!(false);
     vi.advanceTimersByTime(10000);
@@ -1037,7 +1044,9 @@ describe('initialization and lifecycle boundaries', () => {
     expect(view.dataset.motion).toBe('');
     pointer('pointermove', 840, 420);
     expect(view.dataset.motion).toBe('drag'); expect(view.dataset.dragging).toBe('true');
+    expect(nativeDrag()).toBe(true);
     pointer('pointerup', 840, 420);
+    expect(nativeDrag()).toBe(false);
     expect(view.launcher.releasePointerCapture).toHaveBeenCalledExactlyOnceWith(7);
     frames.draw(7000);
     expect(view.dataset.motion).toBe(''); expect(frames.pending).toBe(0);

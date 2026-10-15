@@ -724,6 +724,11 @@ export class AssistantRuntime implements AssistantInstance {
     const launcher = this.view.launcher;
     launcher.classList.add('can-drag');
     launcher.setAttribute('aria-label', 'Погладить или перетащить Мохлика');
+    // Chromium can start dragging an image beneath the original press point
+    // after the launcher moves away. Keep the captured pointer gesture in charge.
+    document.addEventListener('dragstart', (event) => {
+      if (this.dragGesture) event.preventDefault();
+    }, { ...options, capture: true });
     launcher.addEventListener('pointerdown', (event) => {
       if (event.button !== 0 || event.isPrimary === false || this.dragGesture || !this.ready || !this.controller.available) return;
       this.suppressClickUntil = 0;

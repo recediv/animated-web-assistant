@@ -810,10 +810,20 @@ test('reduced motion loads core artwork without optional sheets or walking', asy
     expect(requested.filter((href) => href.endsWith(`/${name}`)), `${name} is checked once before runtime`).toHaveLength(1);
   await expect(character(page).locator('canvas')).toBeVisible();
   await expect(character(page).locator('canvas')).toHaveAttribute('data-frame', String(manifest.neutralFrame));
+  await page.evaluate(() => {
+    // A draggable page image under the press point must not take over when
+    // the custom pointer handler moves the character out of its original box.
+    const background = document.createElement('img');
+    background.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="white"/></svg>';
+    background.draggable = true;
+    Object.assign(background.style, { position: 'fixed', inset: '0', width: '100%', height: '100%', zIndex: '50', opacity: '.01' });
+    document.body.append(background);
+  });
   const box = await launcher(page).boundingBox();
   await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
   await page.mouse.down();
   await page.mouse.move(Math.max(50, box!.x - 100), Math.max(80, box!.y - 180));
+  await page.waitForTimeout(100);
   await expect(character(page)).toHaveAttribute('data-motion', 'drag');
   await expect(character(page)).toHaveAttribute('data-animation', 'static');
   await page.mouse.up();
