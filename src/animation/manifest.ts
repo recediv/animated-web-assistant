@@ -1,6 +1,6 @@
 export const CLIPS = ['idle', 'wave', 'happy', 'sleep', 'wake'] as const;
 export type ClipName = (typeof CLIPS)[number];
-export const EXTRA_CLIPS = ['walk', 'wiggle', 'climb', 'held', 'fall', 'parachute', 'land', 'wink', 'flip', 'head-peek', 'sit', 'scratch', 'ears', 'stretch', 'nose', 'push-left', 'push-right'] as const;
+export const EXTRA_CLIPS = ['walk', 'wiggle', 'climb', 'held', 'fall', 'parachute', 'land', 'wink', 'flip', 'head-peek', 'sit', 'scratch', 'ears', 'stretch', 'nose', 'guitar', 'push-left', 'push-right'] as const;
 export type MotionClipName = ClipName | (typeof EXTRA_CLIPS)[number];
 export type AnimationState = MotionClipName | 'static';
 export const POSES = ['left', 'right', 'up', 'down', 'curious', 'sympathetic'] as const;
@@ -54,9 +54,9 @@ export function validateManifest(value: unknown): value is AtlasManifest {
     const sheetCount = typeof clip.sheet === 'string' ? sheetCounts.get(clip.sheet) : undefined;
     return sheetCount === undefined ? () => false : (n: unknown) => Number.isInteger(n) && Number(n) >= 0 && Number(n) < sheetCount;
   };
-  const fallbackValid = (clip: Record<string, unknown>) => clip.fallbackFrames === undefined ||
+  const fallbackValid = (clip: Record<string, unknown>, maximumFrames = 32) => clip.fallbackFrames === undefined ||
     (clip.sheet !== undefined && Array.isArray(clip.fallbackFrames) && clip.fallbackFrames.length >= 4 &&
-      clip.fallbackFrames.length <= 32 && clip.fallbackFrames.every(index));
+      clip.fallbackFrames.length <= maximumFrames && clip.fallbackFrames.every(index));
   if (!index(neutralFrame)) return false;
   const poses = value.poses;
   if (poses !== undefined && (!record(poses) || !POSES.every((name) => index(poses[name])))) return false;
@@ -68,9 +68,10 @@ export function validateManifest(value: unknown): value is AtlasManifest {
     const frameIndex = clipIndex(clip);
     const holds = ['held', 'fall', 'parachute', 'head-peek', 'push-left', 'push-right'].includes(name);
     const uniqueMinimum = ['wink', 'climb', 'head-peek'].includes(name) ? 2 : 3;
+    const maximumFrames = name === 'guitar' ? 96 : 32;
     const endValid = name === 'climb' ? clip.end === 'hold' || clip.end === 'neutral' : clip.end === (holds ? 'hold' : 'neutral');
-    return Array.isArray(clip.frames) && clip.frames.length >= 4 && clip.frames.length <= 32 && clip.frames.every(frameIndex) && new Set(clip.frames).size >= uniqueMinimum && Number.isFinite(clip.fps) && Number(clip.fps) >= 8 && Number(clip.fps) <= 16 && endValid &&
-      fallbackValid(clip);
+    return Array.isArray(clip.frames) && clip.frames.length >= 4 && clip.frames.length <= maximumFrames && clip.frames.every(frameIndex) && new Set(clip.frames).size >= uniqueMinimum && Number.isFinite(clip.fps) && Number(clip.fps) >= 8 && Number(clip.fps) <= 16 && endValid &&
+      fallbackValid(clip, maximumFrames);
   })) return false;
   const expected = { idle: [12, 12], wave: [24, 16], happy: [24, 16], sleep: [12, 12], wake: [12, 16] };
   return CLIPS.every((name) => {

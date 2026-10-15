@@ -438,7 +438,7 @@ test.describe('Lively companion', () => {
     await expect(character(page).locator('dialog')).not.toHaveAttribute('open');
   });
 
-  test('offers six nearby scenes and runs a flip without a button', async ({
+  test('offers seven nearby scenes and runs a flip without a button', async ({
     page,
   }) => {
     test.setTimeout(30000);
@@ -448,7 +448,7 @@ test.describe('Lively companion', () => {
       await expect(page.locator('.companion-skills')).toBeVisible();
       await page.locator(`[data-companion-skill="${name}"]`).click();
     };
-    await expect(page.locator('.companion-skill')).toHaveCount(6);
+    await expect(page.locator('.companion-skill')).toHaveCount(7);
     await expect(page.locator('[data-companion-skill="stroll"],[data-companion-skill="arrival"],[data-companion-skill="grab"],[data-companion-skill="flip"]')).toHaveCount(0);
     await pickScene('wiggle');
     await expect(character(page)).toHaveAttribute('data-motion', 'wiggle');
@@ -463,6 +463,37 @@ test.describe('Lively companion', () => {
     await pickScene('nose');
     await expect(character(page).locator('canvas')).toHaveAttribute('data-sheet', 'leisure');
     await expect(character(page).locator('dialog')).not.toHaveAttribute('open');
+  });
+
+  test('plays the complete guitar scene from its button and releases the interaction hold', async ({ page }) => {
+    test.setTimeout(35000);
+    await page.addInitScript(() => { Math.random = () => 0.5; });
+    await ready(page);
+    const guitarRequests: string[] = [];
+    page.on('request', (request) => { if (request.url().endsWith('/guitar.webp')) guitarRequests.push(request.url()); });
+    await launcher(page).hover();
+    const button = page.locator('[data-companion-skill="guitar"]');
+    await expect(button).toHaveAccessibleName('Лесной рок');
+    await expect(button.locator('svg')).toBeVisible();
+    await button.click();
+    await expect(character(page)).toHaveAttribute('data-animation', 'guitar');
+    await expect(character(page).locator('canvas')).toHaveAttribute('data-sheet', 'guitar');
+    await expect(character(page).locator('dialog')).not.toHaveAttribute('open');
+    await page.waitForFunction(() => {
+      const canvas = document.querySelector('anime-shop-assistant')?.shadowRoot?.querySelector('canvas');
+      return canvas?.dataset.sheet === 'guitar' && Number(canvas.dataset.frame) >= 46;
+    });
+    await expect(character(page)).toHaveAttribute('data-animation', 'guitar');
+    await expect(character(page)).toHaveAttribute('data-animation', 'static', { timeout: 8000 });
+    await expect(character(page).locator('canvas')).toHaveAttribute('data-sheet', 'main');
+    expect(guitarRequests).toHaveLength(1);
+    await expectInsideViewport(page);
+    await page.mouse.move(0, 0);
+    await expect(page.locator('.companion-skills')).toBeHidden();
+    await launcher(page).hover();
+    await page.locator('[data-companion-skill="nose"]').click();
+    await expect(character(page)).toHaveAttribute('data-animation', 'nose');
+    await expect(character(page).locator('canvas')).toHaveAttribute('data-sheet', 'leisure');
   });
 
   test('supports mouse dragging and treats a short press as petting', async ({

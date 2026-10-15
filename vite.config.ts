@@ -32,7 +32,7 @@ export default defineConfig(({ mode }) => {
           server.middlewares.use(async (request, response, next) => {
             const path = request.url?.split('?')[0];
             const asset = path?.startsWith('/assistant/1.0.0/') ? path.slice('/assistant/1.0.0/'.length) : null;
-            if (!asset || !['poster.webp', 'atlas.webp', 'reactions.webp', 'personality.webp', 'leisure.webp', 'push.webp', 'atlas.json', 'assistant.css'].includes(asset)) { next(); return; }
+            if (!asset || !['poster.webp', 'atlas.webp', 'reactions.webp', 'personality.webp', 'leisure.webp', 'guitar.webp', 'push.webp', 'atlas.json', 'assistant.css'].includes(asset)) { next(); return; }
             try {
               const { readFile } = await import('node:fs/promises');
               const source = asset === 'assistant.css' ? 'src/ui/assistant.css' : `assets/exported/${asset}`;

@@ -49,7 +49,7 @@ export interface ShopAdapter {
   track?(event: AssistantAnalyticsEvent): void;
 }
 
-export type QuietScene = 'sit' | 'scratch' | 'ears' | 'stretch' | 'nose';
+export type QuietScene = 'sit' | 'scratch' | 'ears' | 'stretch' | 'nose' | 'guitar';
 export type AssistantScene = 'stroll' | 'climb' | 'peek' | 'wiggle' | 'flip' | 'arrival' | QuietScene;
 
 export interface AssistantInstance {

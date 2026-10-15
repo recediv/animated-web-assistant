@@ -112,6 +112,8 @@ export function mountCompanionSkills(options: {
     scratch: '<path d="M5 14c-3-4 1-8 5-6 3 1 3 4 1 6l-3 3zM16 5l3-2M17 9h4M16 13l3 2M10 19l3 2"/>',
     stretch: '<path d="M7 12V4M7 12l5 3 6-3M12 15l-3 6M12 15l6 6M18 12V7"/><circle cx="12" cy="9" r="3"/>',
     nose: '<path d="M8 10c2-2 6-2 8 0l-4 4zM12 14v3M8 18c2 2 6 2 8 0M4 6l-2 2M20 6l2 2"/>',
+    // The scene's guitar silhouette, simplified for a 22px inline icon.
+    guitar: '<g transform="translate(8 17) scale(.19) rotate(-45)" stroke="currentColor" stroke-width="6"><path d="M14-4 C14-10 23-17 23-23 C22-28 14-23 8-17 Q4-14-1-18 C-10-24-21-21-25-11 C-29-3-28 10-21 18 C-15 25-3 26 6 21 Q13 18 10 13 Q7 7 12 6 C17 6 19 14 23 11 Q26 7 15 4Z"/><path d="M14-4 Q13-9 17-15 Q10-10 5-13 C-4-18-15-16-17-7 Q-20 0-14 9 L-4 17 Q4 19 8 13 Q4 4 14 4Z" stroke-width="2.5"/><path d="M13-4.6 72-3.4 72 3.4 13 4.6Z"/><path d="M71-3.5 Q75-3 77-7 L96-6 Q101-5 99 0 Q99 4 93 4 L88 2.6 Q78 5 71 3.5Z"/><path d="M78-7v-4m7 4v-4m7 4v-4" stroke-width="3.5"/><path d="M33-3v6m15-6v6m13-6v6" stroke-width="2.5"/><path d="M-17-6v12M1-6v12M11-6v12" stroke-width="4.5"/><circle cx="-3" cy="17" r="2.5" fill="currentColor" stroke="none"/></g>',
   };
   const buttons = options.scenes.map((scene) => {
     const button = document.createElement('button');

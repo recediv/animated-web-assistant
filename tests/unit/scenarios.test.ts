@@ -44,7 +44,7 @@ function setup(options: { profile?: 'calm' | 'lively'; scenes?: boolean; persist
 function completeFiniteActions(controller: ScenarioController, hooks: ReturnType<typeof setup>['hooks']) {
   let generation = 0;
   const trace: { state: AnimationState; at: number }[] = [];
-  const clips: Partial<Record<AnimationState, number>> = { idle: 1000, wink: 1250, wave: 1500, happy: 1500, wake: 750, sleep: 1000, sit: 4000, scratch: 1500, ears: 1500, stretch: 2500, nose: 1000 };
+  const clips: Partial<Record<AnimationState, number>> = { idle: 1000, wink: 1250, wave: 1500, happy: 1500, wake: 750, sleep: 1000, sit: 4000, scratch: 1500, ears: 1500, stretch: 2500, nose: 1000, guitar: 9500 };
   hooks.animate.mockImplementation((state: AnimationState) => {
     trace.push({ state, at: Date.now() });
     const current = ++generation;
@@ -569,7 +569,7 @@ describe('lively companion profile', () => {
     expect(controller.snapshot.animation).toBe(gesture);
     expect(calls(gesture)).toHaveLength(1);
     expect(controller.snapshot.state).toBe('closed');
-    vi.advanceTimersByTime(gesture === 'sit' ? 4000 : gesture === 'stretch' ? 2500 : gesture === 'nose' ? 1000 : 1500);
+    vi.advanceTimersByTime(gesture === 'guitar' ? 9500 : gesture === 'sit' ? 4000 : gesture === 'stretch' ? 2500 : gesture === 'nose' ? 1000 : 1500);
     expect(controller.snapshot.animation).toBe('static');
     vi.advanceTimersByTime(1720);
     expect(controller.snapshot.animation).toBe('idle');
@@ -587,7 +587,7 @@ describe('lively companion profile', () => {
     const { controller, hooks, calls } = setup({ profile: 'lively', scenes: true, persistent: false });
     completeFiniteActions(controller, hooks);
     vi.advanceTimersByTime(90_000);
-    expect(calls('scratch').length).toBeGreaterThan(0);
+    expect(QUIET_GESTURES.some((gesture) => calls(gesture).length > 0)).toBe(true);
     expect(new Set(hooks.motion!.mock.calls.slice(0, 4).map(([scene]) => scene))).toEqual(new Set(['stroll', 'flip', 'peek', 'wiggle']));
     expect(controller.snapshot.sleeping).toBe(true);
     expect(calls('sleep')).toHaveLength(1);

@@ -7,7 +7,7 @@ import { PersonalityVariation, type ReplyKind } from './variation';
 export type PanelScreen = 'home' | 'categories' | 'settings';
 export type InterfaceState = 'closed' | 'open' | 'hiddenByUser' | 'suppressed';
 type MicroGesture = 'idle' | 'wave' | 'wink' | QuietScene;
-export const QUIET_GESTURES = ['sit', 'scratch', 'ears', 'stretch', 'nose'] as const;
+export const QUIET_GESTURES = ['sit', 'scratch', 'ears', 'stretch', 'nose', 'guitar'] as const;
 export interface ScenarioPreferences {
   hidden: boolean;
   motion: 'system' | 'off';

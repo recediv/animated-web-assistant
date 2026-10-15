@@ -513,7 +513,7 @@ describe('accepted playback completion contract', () => {
     expect(player.play('idle')).toBe(false);
   });
 
-  it.each(['sit', 'walk'] as const)('reports an absent optional %s clip as unavailable without disabling the cached core', async (clip) => {
+  it.each(['sit', 'walk', 'guitar'] as const)('reports an absent optional %s clip as unavailable without disabling the cached core', async (clip) => {
     delete servedManifest.clips[clip];
     const { player, canvas, onEnd } = setup();
     expect(player.play(clip)).toBe(true); await ready();

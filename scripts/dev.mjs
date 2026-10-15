@@ -45,7 +45,7 @@ const server = createServer(async (request, response) => {
     let pathname = decodeURIComponent(url.pathname);
     if (pathname.startsWith('/assistant/1.0.0/')) {
       const name = pathname.slice('/assistant/1.0.0/'.length);
-      if (!['poster.webp', 'atlas.webp', 'reactions.webp', 'personality.webp', 'leisure.webp', 'push.webp', 'atlas.json', 'assistant.css'].includes(name)) {
+      if (!['poster.webp', 'atlas.webp', 'reactions.webp', 'personality.webp', 'leisure.webp', 'guitar.webp', 'push.webp', 'atlas.json', 'assistant.css'].includes(name)) {
         response.writeHead(404); response.end('Not found'); return;
       }
       pathname = name === 'assistant.css' ? '/src/ui/assistant.css' : `/assets/exported/${name}`;

@@ -26,6 +26,9 @@ export type MohlikCalmClip = 'sit' | 'scratch' | 'ears' | 'stretch' | 'nose';
 export const CALM_CLIPS: Record<MohlikCalmClip, { count: number; fps: number; end: 'neutral' }>;
 export function personalityPose(index: number): MohlikPersonalityPose;
 export function mohlikDefs(prefix?: string): string;
+/** Original short paw, shared with prop animations. */
+export function mohlikArm(side: 'left' | 'right', pose: MotionPose): string;
+export function mohlikProfileBody(pose: MohlikPersonalityPose, prefix?: string, pushing?: boolean): string;
 export function mohlikBody(pose?: MotionPose, raised?: boolean, prefix?: string): string;
 export function renderFrame(clip?: MotionClip, frame?: number): string;
 export function renderPose(name: MohlikLook): string;

@@ -177,6 +177,12 @@ const companionScenes = [
     description: 'Заметит товар и отреагирует, когда отдыхает между сценками.',
     glyph: '?',
   },
+  {
+    name: 'guitar',
+    title: 'Лесной рок',
+    description: 'Достанет электрогитару, сыграет рифф и повернётся спинкой, виляя хвостиком.',
+    glyph: '♫',
+  },
 ] as const;
 
 app.innerHTML = `
@@ -244,7 +250,7 @@ async function initializeCompanionSkills(): Promise<void> {
     isInteractionBlocked: () => demoDestroyed || Boolean(pageEntry) || !assistant,
     lookAt: (point) => assistant?.lookAt?.(point),
     scenes: companionScenes.filter((scene) =>
-      ['wiggle', 'sit', 'ears', 'scratch', 'stretch', 'nose'].includes(scene.name),
+      ['wiggle', 'sit', 'ears', 'scratch', 'stretch', 'nose', 'guitar'].includes(scene.name),
     ),
     runScene: async (name) => {
       if (name === 'grab') showMessage('Подними самого Мохлика мышкой или пальцем и отпусти.');
@@ -1305,6 +1311,7 @@ async function runScenario(name: string): Promise<void> {
       'ears',
       'stretch',
       'nose',
+      'guitar',
     ].includes(name)
   ) {
     const instance = await initializeAssistant();
@@ -1330,6 +1337,7 @@ async function runScenario(name: string): Promise<void> {
           ears: 'Playing ear gestures.',
           stretch: 'Playing stretch.',
           nose: 'Playing nose twitch.',
+          guitar: 'Playing electric guitar and tail wiggle.',
           stroll: 'Walking.',
           climb: 'Climbing.',
           peek: 'Hiding and peeking.',

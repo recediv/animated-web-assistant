@@ -189,7 +189,7 @@ function foot(side, pose, prefix) {
   </g>`;
 }
 
-function arm(side, pose) {
+export function mohlikArm(side, pose) {
   const left = side === 'left';
   if (!left && pose.waveReach > 0) {
     const reach = pose.waveReach;
@@ -293,7 +293,7 @@ export function mohlikBody(pose = poseFor('idle', 0), raised = false, prefix = '
       ${crown(prefix)}${rear ? '' : face(pose)}
     </g>
     ${rear && pose.climbHands ? leafTail(pose,prefix,true) : ''}
-    ${pose.climbHands ? `${climbingArm('left',pose.climbLeftHandY??round(66+pose.climbHandY*2.4),pose.climbLeftElbow??0,pose.climbPull??0)}${climbingArm('right',pose.climbRightHandY??round(66-pose.climbHandY*2.4),pose.climbRightElbow??0,pose.climbPull??0)}` : raised ? raisedArms(pose) : `${arm('left',pose)}${arm('right',pose)}`}
+    ${pose.hideArms ? '' : pose.climbHands ? `${climbingArm('left',pose.climbLeftHandY??round(66+pose.climbHandY*2.4),pose.climbLeftElbow??0,pose.climbPull??0)}${climbingArm('right',pose.climbRightHandY??round(66-pose.climbHandY*2.4),pose.climbRightElbow??0,pose.climbPull??0)}` : raised ? raisedArms(pose) : `${mohlikArm('left',pose)}${mohlikArm('right',pose)}`}
     ${rear && !pose.climbHands ? leafTail(pose,prefix,true) : ''}
   </g>`;
 }
@@ -305,7 +305,7 @@ function profileFoot(side, pose, prefix = 'mohlik') {
 }
 
 /** Canonical profile faces right; the runtime mirrors it for leftward travel. */
-function profileBody(pose, prefix = 'mohlik', pushing = false) {
+export function mohlikProfileBody(pose, prefix = 'mohlik', pushing = false) {
   const h = (x,y) => headPoint(pose,x,y,108,98);
   const b = (x,y) => {
     if (!pushing || !pose.pushLegBend) return bodyPoint(pose,x,y);
@@ -318,7 +318,7 @@ function profileBody(pose, prefix = 'mohlik', pushing = false) {
   return `<g data-character="mohlik" data-view="profile" fill="url(#${prefix}-fur)" stroke="${ink}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
     <g data-part="side-leaf-tail" transform="rotate(${pose.tail} 74 147)"><path d="M75 149 Q59 138 50 129" fill="none" stroke="#5f814c" stroke-width="5"/><path d="M58 142 Q33 142 21 118 Q42 98 61 116 Q70 128 58 142Z" fill="url(#${prefix}-leaf)"/><path d="M60 140 L28 119 M43 129 L40 116" fill="none" stroke="#bad697" stroke-width="1.7"/></g>
     ${pushing ? '' : profileFoot('right',pose,prefix)}
-    ${pushing ? '' : `<g transform="rotate(${pose.leftArm} 83 128)"><path d="M82 123 Q72 132 76 147 Q80 156 89 152 Q95 145 88 131Z" fill="#a9c58e"/></g>`}
+    ${pushing || pose.hideArms ? '' : `<g transform="rotate(${pose.leftArm} 83 128)"><path d="M82 123 Q72 132 76 147 Q80 156 89 152 Q95 145 88 131Z" fill="#a9c58e"/></g>`}
     <g data-part="head" transform="translate(0 ${pose.headY}) rotate(${pose.headTilt} 108 98)">
       <g transform="rotate(${pose.earLeft} 91 67)"><path d="M82 73 Q62 47 69 17 Q88 27 98 60 L97 73Z" fill="#a7c48a"/><path d="M76 30 Q86 43 91 62" fill="none" stroke="#dde8bc" stroke-width="4"/></g>
       <g transform="rotate(${pose.earRight} 123 67)"><path d="M113 70 Q117 35 139 15 Q153 42 134 75Z"/><path d="M139 28 Q135 48 127 62" fill="none" stroke="#e3ebc2" stroke-width="4"/></g>
@@ -334,7 +334,7 @@ function profileBody(pose, prefix = 'mohlik', pushing = false) {
       ${pushing && pose.pushEffort > .3 ? '<ellipse data-part="push-effort-mouth" cx="146" cy="111" rx="1.8" ry="2.1" fill="#52674b" stroke="none"/><path d="M139 107 L157 105 M139 113 L157 117" fill="none" stroke-width="1.3"/>' : '<path d="M140 111 Q147 114 152 110 M139 107 L157 105 M139 113 L157 117" fill="none" stroke-width="1.3"/>'}
       ${pose.turn < 1 ? '<path d="M89 91 Q94 84 98 91" fill="none" stroke="#302829" stroke-width="2"/>' : ''}
     </g>
-    ${pushing ? '' : `<g transform="rotate(${pose.rightArm} 135 128)"><path d="M133 123 Q145 130 147 143 Q148 154 138 157 Q128 159 127 148 Q125 136 133 123" stroke-width="1.8"/></g>`}
+    ${pushing || pose.hideArms ? '' : `<g transform="rotate(${pose.rightArm} 135 128)"><path d="M133 123 Q145 130 147 143 Q148 154 138 157 Q128 159 127 148 Q125 136 133 123" stroke-width="1.8"/></g>`}
   </g>`;
 }
 
@@ -389,7 +389,7 @@ export function renderPushFrame(name = 'push-right', frame = 0) {
   const nearPaw = '<g data-part="push-paw-near" transform="translate(8 -4) rotate(-72 135 128)"><path d="M133 123 Q145 130 147 143 Q148 154 138 157 Q128 159 127 148 Q125 136 133 123" stroke-width="1.8"/></g>';
   return wrap(`<g data-view="page-push" data-side="${name === 'push-left' ? 'left' : 'right'}"${name === 'push-left' ? ' transform="translate(192 0) scale(-1 1)"' : ''}><g fill="url(#mohlik-fur)" stroke="${ink}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
     <g data-gesture="push-contact" transform="${brace}">${farPaw}</g>
-    <g data-gesture="push-effort" data-effort="${effort}" transform="translate(${bodyX} ${crouch}) rotate(${lean} 108 173)">${profileBody(pose,'mohlik',true)}</g>
+    <g data-gesture="push-effort" data-effort="${effort}" transform="translate(${bodyX} ${crouch}) rotate(${lean} 108 173)">${mohlikProfileBody(pose,'mohlik',true)}</g>
     <g data-gesture="push-support" transform="${brace}">${profileFoot('right',pose)}</g>
     <g data-gesture="push-support" transform="${brace}">${profileFoot('left',pose)}</g>
     <g data-gesture="push-contact" transform="${brace}">${nearPaw}</g>
@@ -408,7 +408,7 @@ export function renderExtraFrame(name, frame) {
 export function renderPersonalityFrame(index) {
   const pose = personalityPose(index);
   const {kind} = PERSONALITY_FRAMES[index];
-  let content = pose.turn ? profileBody(pose) : mohlikBody(pose,kind === 'held' || kind === 'parachute');
+  let content = pose.turn ? mohlikProfileBody(pose) : mohlikBody(pose,kind === 'held' || kind === 'parachute');
   if (pose.turn === .55) content = `<g transform="translate(10 0) scale(.92 1)">${content}</g>`;
   // Preserve body/head size while rotating the tucked drawing around its centre.
   if (kind === 'somersault') {

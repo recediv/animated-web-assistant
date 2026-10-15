@@ -10,7 +10,7 @@ await copyFile(
   resolve(root, 'assets/exported/atlas.json'),
 );
 await mkdir(resolve(root, 'assets/source'), { recursive: true });
-for (const source of ['motion-poses.mjs', 'mohlik.mjs']) {
+for (const source of ['motion-poses.mjs', 'mohlik.mjs', 'guitar.mjs']) {
   await copyFile(
     resolve(import.meta.dirname, '../assets/source', source),
     resolve(root, 'assets/source', source),

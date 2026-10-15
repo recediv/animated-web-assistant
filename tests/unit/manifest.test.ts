@@ -286,4 +286,22 @@ describe('animation manifest boundary validation', () => {
     expect((manifest.clips.flip.frames.length * 1000) / manifest.clips.flip.fps).toBe(2500);
     expect((manifest.clips.land.frames.length * 1000) / manifest.clips.land.fps).toBe(500);
   });
+
+  it('keeps the longer guitar scene optional with a bounded sequence and neutral fallback', () => {
+    const manifest = fresh();
+    expect(manifest.clips.guitar.sheet).toBe('guitar');
+    expect(manifest.clips.guitar.frames).toHaveLength(76);
+    expect(manifest.clips.guitar.fps).toBe(8);
+    expect(manifest.clips.guitar.end).toBe('neutral');
+    expect(manifest.clips.guitar.fallbackFrames).toEqual(Array(76).fill(manifest.neutralFrame));
+    expect(validateManifest(manifest)).toBe(true);
+    const outside = fresh(); outside.clips.guitar.frames[10] = 80;
+    expect(validateManifest(outside)).toBe(false);
+    const tooLong = fresh(); tooLong.clips.guitar.frames.push(...Array(97-tooLong.clips.guitar.frames.length).fill(0));
+    expect(validateManifest(tooLong)).toBe(false);
+    const tooLongFallback = fresh(); tooLongFallback.clips.guitar.fallbackFrames.push(...Array(97-tooLongFallback.clips.guitar.fallbackFrames.length).fill(0));
+    expect(validateManifest(tooLongFallback)).toBe(false);
+    const missing = fresh(); Reflect.deleteProperty(missing.clips, 'guitar'); Reflect.deleteProperty(missing.atlases, 'guitar');
+    expect(validateManifest(missing)).toBe(true);
+  });
 });

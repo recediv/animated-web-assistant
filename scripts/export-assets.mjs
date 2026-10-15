@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import sharp from 'sharp';
 import { CLIPS, LOOK_POSES, EXTRA_CLIPS, PERSONALITY_FRAMES, PERSONALITY_CLIPS, CALM_CLIPS, PUSH_CLIPS, personalityPose, renderFrame, renderPose, renderExtraFrame, renderPersonalityFrame, renderHeadPeekFrame, renderCalmFrame, renderPushFrame } from '../assets/source/mohlik.mjs';
 import { exportBookCovers } from '../assets/source/book-covers.mjs';
+import { GUITAR_CLIP, renderGuitarFrame } from '../assets/source/guitar.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const output = path.join(root, 'assets/exported');
@@ -30,11 +31,12 @@ const manifest = {
     personality: { file: 'personality.webp', width: 1152, height: 1344, columns: 6, rows: 7 },
     leisure: { file: 'leisure.webp', width: 1536, height: 1536, columns: 8, rows: 8 },
     push: { file: 'push.webp', width: 768, height: 1152, columns: 4, rows: 6 },
+    guitar: { file: 'guitar.webp', width: 1920, height: 1536, columns: 10, rows: 8 },
   },
 };
 const layers = [];
-const sheetLayers = { reactions: [], personality: [], leisure: [], push: [] };
-const sheetIndices = { reactions: 0, personality: 0, leisure: 0, push: 0 };
+const sheetLayers = { reactions: [], personality: [], leisure: [], push: [], guitar: [] };
+const sheetIndices = { reactions: 0, personality: 0, leisure: 0, push: 0, guitar: 0 };
 const bounds = [];
 const uniqueFrames = {};
 let neutralEyeSpan = 0;
@@ -169,6 +171,17 @@ for (const [name, definition] of Object.entries(CALM_CLIPS)) {
   manifest.clips[name] = { frames: sequence.map((index) => frames[index]), fps: definition.fps, end: definition.end, sheet: 'leisure', fallbackFrames: Array(sequence.length).fill(manifest.neutralFrame) };
 }
 if (sheetIndices.leisure !== 64) throw new Error('Expected 64 leisure cells');
+const guitarFrames = [];
+const guitarHashes = new Set();
+for (let frame = 0; frame < GUITAR_CLIP.count; frame++) {
+  const exported = await exportCell(renderGuitarFrame(frame), 'guitar', frame, 'guitar');
+  guitarFrames.push(exported.index);
+  guitarHashes.add(exported.hash);
+}
+if (guitarHashes.size < 60) throw new Error('Guitar scene is missing distinct performance/turn drawings');
+if (renderGuitarFrame(0) !== renderFrame() || renderGuitarFrame(GUITAR_CLIP.count-1) !== renderFrame()) throw new Error('Guitar scene must begin and end at neutral');
+uniqueFrames.guitar = guitarHashes.size;
+manifest.clips.guitar = { frames: guitarFrames, fps: GUITAR_CLIP.fps, end: GUITAR_CLIP.end, sheet: 'guitar', fallbackFrames: Array(GUITAR_CLIP.count).fill(manifest.neutralFrame) };
 for (const [name, definition] of Object.entries(PUSH_CLIPS)) {
   const frames = [];
   const hashes = new Set();
@@ -222,7 +235,7 @@ for (let unused = index; unused < columns * rows; unused += 1) {
 }
 await writeFile(path.join(local, 'export-report.json'), `${JSON.stringify({
   frames: index + Object.values(sheetIndices).reduce((sum, count) => sum + count, 0), mainFrames: index, personalityFrames: sheetIndices.personality, reactionFrames: sheetIndices.reactions, leisureFrames: sheetIndices.leisure, pushFrames: sheetIndices.push,
-  animatedFrames, poseFrames: LOOK_POSES.length,
+  guitarFrames: sheetIndices.guitar, animatedFrames, poseFrames: LOOK_POSES.length,
   extraMotionFrames: Object.values(EXTRA_CLIPS).reduce((sum, clip) => sum + clip.count, 0),
   uniqueFrames, cell, atlas: manifest.atlas, atlases: manifest.atlases, sizes, totalAtlasBytes,
   encoding: { quality: 72, alphaQuality: 100 },

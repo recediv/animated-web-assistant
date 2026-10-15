@@ -1367,7 +1367,7 @@ async function run(origin) {
     }
     if (skillsOnly) {
       await waitForMotion();
-      const names = ['wiggle', 'sit', 'ears', 'scratch', 'stretch', 'nose'];
+      const names = ['wiggle', 'sit', 'ears', 'scratch', 'stretch', 'nose', 'guitar'];
       const calls = [];
       const actualPerform = demo.assistant.perform;
       demo.assistant.perform = (scene) => {
@@ -1390,7 +1390,7 @@ async function run(origin) {
         } else if (palette.hidden) pointer(launcher, 'pointerover', center(), 'mouse');
         assert.equal(palette.hidden, false, 'the real hover opens the arc');
         assert.deepEqual([...palette.querySelectorAll('button')].map((button) => button.dataset.companionSkill), names);
-        assert.equal(palette.querySelectorAll('button svg').length, 6, 'all six icons are inline vectors, including nose');
+        assert.equal(palette.querySelectorAll('button svg').length, 7, 'all seven icons are inline vectors, including guitar');
         const button = palette.querySelector(`[data-companion-skill="${name}"]`);
         const point = { x: parseFloat(palette.style.left) + parseFloat(button.style.left) + 20,
           y: parseFloat(palette.style.top) + parseFloat(button.style.top) + 20 };
@@ -1614,9 +1614,9 @@ async function run(origin) {
       assert.equal(document.querySelector('.companion-skills').hidden, true);
       assert.equal(errors.length, 0, errors.join('\n'));
       console.log(JSON.stringify({ result: 'PASS', mode: 'skills-companion', layout: mobile ? 'compact' : 'desktop',
-        clips: actualClips, checked: ['actual6 SVG buttons/public performer/frames/completion', 'immediate replacement',
+        clips: actualClips, checked: ['actual7 SVG buttons/public performer/frames/completion', 'immediate replacement',
           'first real pointer/focus/up/click (touch on compact)', 'up/up-left/up-right finite gaze', 'button hover gaze/curiosity priority/quiet protected', 'pending automatic route cannot erase click', 'repeated nose restart', 'cart first press',
-          'persistent scratch/nose/all6 sequential clicks with held pending peek', 'hover freezes position/no automatic escape/0RAF', 'no peek controls', 'fresh leisure nose', 'nose after wave/happy/sit', 'nose during scroll', 'latest selection', 'off/hide release', 'cleanup'],
+          'persistent scratch/nose/all7 sequential clicks with held pending peek', 'hover freezes position/no automatic escape/0RAF', 'no peek controls', 'fresh leisure nose', 'nose after wave/happy/sit', 'nose during scroll', 'latest selection', 'off/hide release', 'cleanup'],
         limitations: 'JSDOM supplies browser primitives; native arc pixels and pointer hit layout were not rendered.' }));
       return;
     }
