@@ -379,7 +379,7 @@ describe('finite idle, sleep and scrolling', () => {
   it.each(['idle', 'wave', 'happy'] as const)('lets the current lively %s clip finish during scroll but delays new gestures', (animation) => {
     const { controller, hooks } = setup({ profile: 'lively', persistent: false });
     if (animation === 'idle') vi.advanceTimersByTime(640);
-    else if (animation === 'wave') controller.pet();
+    else if (animation === 'wave') controller.react('pointer:near');
     else controller.cart(addition('scrolling-current-happy'));
     const trace = completeFiniteActions(controller, hooks);
     const duration = animation === 'idle' ? 1000 : 1500;
@@ -543,15 +543,17 @@ describe('lively companion profile', () => {
     expect(controller.snapshot.state).toBe('closed');
   });
 
-  it('does not wave automatically when the eligible thirty-percent choice is not selected; petting remains immediate', () => {
+  it('does not wave automatically when the eligible thirty-percent choice is not selected; a resting pet uses a wink', () => {
     const { controller, hooks, calls } = setup({ profile: 'lively', persistent: false, random: () => .8 });
     completeFiniteActions(controller, hooks);
     vi.advanceTimersByTime(34000);
     expect(calls('wave')).toHaveLength(0);
     expect(calls('idle').length).toBeGreaterThan(5);
+    controller.finishAnimation();
     controller.pet();
-    expect(calls('wave')).toHaveLength(1);
-    expect(controller.snapshot.animation).toBe('wave');
+    expect(calls('wave')).toHaveLength(0);
+    expect(calls('wink')).toHaveLength(1);
+    expect(controller.snapshot.animation).toBe('wink');
   });
 
   it.each(QUIET_GESTURES)('occasionally substitutes finite %s after the first idle without changing petting', (gesture) => {
@@ -575,7 +577,8 @@ describe('lively companion profile', () => {
     expect(controller.snapshot.animation).toBe('idle');
     expect(calls('wave')).toHaveLength(0);
     controller.pet();
-    expect(controller.snapshot.animation).toBe('wave');
+    expect(controller.snapshot.animation).toBe('idle');
+    expect(calls('wave')).toHaveLength(0);
     expect(REPLIES.pet).toContain(controller.snapshot.greetingText);
     controller.destroy();
     vi.advanceTimersByTime(1500);
@@ -735,7 +738,7 @@ describe('lively companion profile', () => {
     controller.react('pointer:near');
     expect(calls('wave')).toHaveLength(2);
     controller.pet();
-    expect(calls('wave')).toHaveLength(3);
+    expect(calls('wave')).toHaveLength(2);
     expect(calls('wink')).toHaveLength(0);
   });
 
@@ -745,11 +748,30 @@ describe('lively companion profile', () => {
     expect(controller.snapshot.state).toBe('closed');
     expect(controller.snapshot.greetingVisible).toBe(true);
     expect(REPLIES.pet).toContain(controller.snapshot.greetingText);
-    expect(calls('wave')).toHaveLength(1);
+    expect(calls('wink')).toHaveLength(1);
+    expect(calls('wave')).toHaveLength(0);
     controller.finishAnimation();
     vi.advanceTimersByTime(18_000);
-    expect(calls('wave')).toHaveLength(1);
+    expect(calls('wave')).toHaveLength(0);
     expect(hooks.greeted).not.toHaveBeenCalled();
+    expect(controller.snapshot.greetingVisible).toBe(false);
+  });
+
+  it('does not restart a reaction or extend the visible reply when repeatedly petted', () => {
+    const { controller, hooks, calls } = setup({ profile: 'lively', persistent: false });
+    controller.pet();
+    const reply = controller.snapshot.greetingText;
+    expect(calls('wink')).toHaveLength(1);
+    hooks.animate.mockClear();
+    controller.pet();
+    vi.advanceTimersByTime(3000);
+    controller.pet();
+    expect(hooks.animate).not.toHaveBeenCalled();
+    expect(controller.snapshot.greetingText).toBe(reply);
+    expect(controller.snapshot.greetingVisible).toBe(true);
+    vi.advanceTimersByTime(1499);
+    expect(controller.snapshot.greetingVisible).toBe(true);
+    vi.advanceTimersByTime(1);
     expect(controller.snapshot.greetingVisible).toBe(false);
   });
 
@@ -879,7 +901,7 @@ describe('physical companion scenes', () => {
   it.each(['wave', 'happy', 'held pose'] as const)('does not interrupt %s for an autonomous scene', (activity) => {
     const { controller, hooks } = setup({ profile: 'lively', scenes: true, persistent: false });
     vi.advanceTimersByTime(3500);
-    if (activity === 'wave') controller.pet();
+    if (activity === 'wave') controller.react('pointer:near');
     else if (activity === 'happy') controller.cart(addition('protected-success'));
     else controller.react('product:enter');
     vi.advanceTimersByTime(300);
@@ -891,7 +913,7 @@ describe('physical companion scenes', () => {
   it.each(['wave', 'happy'] as const)('retains one expired scene until protected %s finishes', (animation) => {
     const { controller, hooks } = setup({ profile: 'lively', scenes: true, persistent: false });
     vi.advanceTimersByTime(3500);
-    if (animation === 'wave') controller.pet();
+    if (animation === 'wave') controller.react('pointer:near');
     else controller.cart(addition('pending-success'));
     vi.advanceTimersByTime(1500);
     expect(hooks.motion).not.toHaveBeenCalled();
@@ -917,16 +939,20 @@ describe('physical companion scenes', () => {
     expect(hooks.motion).toHaveBeenCalledExactlyOnceWith('peek');
   });
 
-  it('does not insert a pending scene while a synchronous pose cleanup starts a pet reaction', () => {
+  it('keeps a held pose and pending scene until the original speech ends after petting', () => {
     const { controller, hooks } = setup({ profile: 'lively', scenes: true, persistent: false });
     hooks.pose.mockImplementation((pose) => { if (!pose) controller.finishAnimation(); });
     vi.advanceTimersByTime(3000);
     controller.react('cart:error');
+    const reply = controller.snapshot.greetingText;
     vi.advanceTimersByTime(1000);
     controller.pet();
-    expect(controller.snapshot.animation).toBe('wave');
+    expect(controller.snapshot.animation).toBe('static');
+    expect(controller.snapshot.pose).toBe('sympathetic');
+    expect(controller.snapshot.greetingText).toBe(reply);
     expect(hooks.motion).not.toHaveBeenCalled();
-    controller.finishAnimation();
+    vi.advanceTimersByTime(3500);
+    expect(controller.snapshot.greetingVisible).toBe(false);
     expect(hooks.motion).toHaveBeenCalledExactlyOnceWith('peek');
   });
 
@@ -959,7 +985,7 @@ describe('physical companion scenes', () => {
   it.each(['system reduced', 'settings off'] as const)('drops a pending physical scene when motion is disabled by %s', (source) => {
     const { controller, hooks, preferences } = setup({ profile: 'lively', scenes: true, persistent: false });
     vi.advanceTimersByTime(3500);
-    controller.pet();
+    controller.react('pointer:near');
     vi.advanceTimersByTime(300);
     if (source === 'system reduced') controller.setEnvironment(false, true);
     else controller.setPreferences({ ...preferences, motion: 'off' }, false);
@@ -994,7 +1020,7 @@ describe('physical companion scenes', () => {
   it('clears a pending scene and all deadlines on destroy, including late animation completion', () => {
     const { controller, hooks } = setup({ profile: 'lively', scenes: true, persistent: false });
     vi.advanceTimersByTime(3500);
-    controller.pet();
+    controller.react('pointer:near');
     vi.advanceTimersByTime(300);
     controller.destroy();
     expect(vi.getTimerCount()).toBe(0);
@@ -1088,23 +1114,26 @@ describe('physical companion scenes', () => {
     expect(controller.snapshot.animation).toBe('static');
   });
 
-  it('answers repeated petting differently, with the navigation still closed', () => {
+  it('varies successive pet replies after each previous bubble ends, with the navigation still closed', () => {
     const { controller } = setup({ profile: 'lively', persistent: false });
     const replies = new Set<string>();
     for (let index = 0; index < REPLIES.pet.length; index++) {
       controller.pet(); replies.add(controller.snapshot.greetingText);
       expect(controller.snapshot.state).toBe('closed');
+      controller.finishAnimation();
+      vi.advanceTimersByTime(4500);
     }
     expect(replies.size).toBe(REPLIES.pet.length);
   });
 });
 
 describe('explicit finite quiet scenes', () => {
-  it.each(QUIET_GESTURES)('preserves selected %s and its pending Promise through passive hovers before scroll and after settle', async (scene) => {
+  it.each(QUIET_GESTURES)('preserves selected %s and its pending Promise through petting and passive hovers before scroll and after settle', async (scene) => {
     const { controller, hooks } = setup({ profile: 'lively', scenes: true, persistent: false });
     let settled = false;
     const result = controller.performQuiet(scene).then(() => { settled = true; });
     const calls = hooks.animate.mock.calls.length;
+    controller.pet();
     controller.react('product:enter');
     controller.react('pointer:near');
     controller.activity(true);
@@ -1183,12 +1212,11 @@ describe('explicit finite quiet scenes', () => {
     expect(hooks.motion).toHaveBeenCalledTimes(1);
   });
 
-  it.each(['pet', 'physical', 'drag', 'hidden', 'off', 'reduced', 'blocked', 'destroy'] as const)(
+  it.each(['physical', 'drag', 'hidden', 'off', 'reduced', 'blocked', 'destroy'] as const)(
     'settles a selected quiet scene when cancelled by %s', async (action) => {
       const { controller, preferences } = setup({ profile: 'lively', scenes: true, persistent: false });
       const result = controller.performQuiet('scratch');
-      if (action === 'pet') controller.pet();
-      else if (action === 'physical') controller.perform('stroll');
+      if (action === 'physical') controller.perform('stroll');
       else if (action === 'drag') controller.beginPhysical(true);
       else if (action === 'hidden') controller.setPreferences({ ...preferences, hidden: true }, false);
       else if (action === 'off') controller.setPreferences({ ...preferences, motion: 'off' }, false);

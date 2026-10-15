@@ -110,6 +110,7 @@ export function mountCompanionSkills(options: {
   setInteractionHold?(hold: boolean): void;
   isInteractionBlocked?(): boolean;
   lookAt?(point: { x: number; y: number }): void;
+  onPlacement?(region: { left: number; top: number; width: number; height: number } | null): void;
   scenes: readonly CompanionSkill[];
 }): { refresh(): void; close(): void; destroy(): void } {
   const palette = document.createElement('div');
@@ -139,6 +140,7 @@ export function mountCompanionSkills(options: {
   let pointerPoint: { x: number; y: number } | null = null;
   let hoveredHost: HTMLElement | null = null;
   let holding = false;
+  let speechRegion: { left: number; top: number; width: number; height: number } | null = null;
   let commandSequence = 0;
   let selectionRegion: { left: number; top: number; right: number; bottom: number } | null = null;
   const iconPaths: Record<string, string> = {
@@ -166,15 +168,15 @@ export function mountCompanionSkills(options: {
     const label = () => motionOff() ? 'Движения выключены — сценки сейчас отдыхают.' : scene.title;
     button.addEventListener('pointerover', () => { showTooltip(button, label()); lookAtButton(button); }, { signal: abort.signal });
     button.addEventListener('focus', () => { showTooltip(button, label()); lookAtButton(button); }, { signal: abort.signal });
-    button.addEventListener('pointerout', () => { tooltip.hidden = true; }, { signal: abort.signal });
-    button.addEventListener('blur', () => { tooltip.hidden = true; }, { signal: abort.signal });
+    button.addEventListener('pointerout', hideTooltip, { signal: abort.signal });
+    button.addEventListener('blur', hideTooltip, { signal: abort.signal });
     button.addEventListener('click', (event) => {
       event.stopPropagation();
       if (motionOff()) { showTooltip(button, label()); return; }
       // Keep the selection session held across async initialization and playback.
       // A following choice must never race an automatic departure between clips.
       if (!usable()) return;
-      tooltip.hidden = true;
+      hideTooltip();
       run(scene);
     }, { signal: abort.signal });
     return button;
@@ -182,6 +184,24 @@ export function mountCompanionSkills(options: {
   grid.append(...buttons);
   palette.append(bridge, grid);
   document.body.append(palette, tooltip);
+
+  function reportPlacement(): void {
+    let region = palette.hidden ? null : { left: parseFloat(palette.style.left), top: parseFloat(palette.style.top),
+      width: parseFloat(palette.style.width), height: parseFloat(palette.style.height) };
+    if (region && !Object.values(region).every(Number.isFinite)) region = null;
+    if (region && !tooltip.hidden) {
+      const right = Math.max(region.left + region.width, parseFloat(tooltip.style.left) + parseFloat(tooltip.style.width));
+      const bottom = Math.max(region.top + region.height, parseFloat(tooltip.style.top) + (tooltip.offsetHeight || 26));
+      region.left = Math.min(region.left, parseFloat(tooltip.style.left));
+      region.top = Math.min(region.top, parseFloat(tooltip.style.top));
+      region.width = right - region.left; region.height = bottom - region.top;
+    }
+    if ((!region && !speechRegion) || (region && speechRegion && region.left === speechRegion.left && region.top === speechRegion.top &&
+        region.width === speechRegion.width && region.height === speechRegion.height)) return;
+    speechRegion = region;
+    options.onPlacement?.(region);
+  }
+  function hideTooltip(): void { tooltip.hidden = true; reportPlacement(); }
 
   function showTooltip(button: HTMLButtonElement, text: string): void {
     if (palette.hidden) return;
@@ -192,6 +212,7 @@ export function mountCompanionSkills(options: {
     tooltip.style.width = `${width}px`;
     tooltip.style.left = `${Math.max(area.left + 12, Math.min(x - width / 2, area.left + area.width - width - 12))}px`;
     tooltip.style.top = `${Math.max(area.top + 4, y - 30)}px`;
+    reportPlacement();
   }
   function lookAtButton(button: HTMLButtonElement): void {
     if (palette.hidden || motionOff()) return;
@@ -203,6 +224,10 @@ export function mountCompanionSkills(options: {
 
   function inRegion(target: EventTarget | null): boolean {
     return target instanceof Node && (!!host?.contains(target) || !!host?.shadowRoot?.contains(target) || palette.contains(target));
+  }
+  function onLauncher(event: Event, target: HTMLElement | null): boolean {
+    const button = target?.shadowRoot?.querySelector('.pika-a-launcher');
+    return !!button && event.composedPath().includes(button);
   }
   function focusInside(): boolean {
     return inRegion(document.activeElement) || inRegion(host?.shadowRoot?.activeElement ?? null);
@@ -290,6 +315,7 @@ export function mountCompanionSkills(options: {
     });
     palette.classList.toggle('companion-skills-below', placement.below);
     palette.classList.toggle('companion-skills-column', placement.layout === 'column');
+    reportPlacement();
   }
   function currentOpenIntent(): boolean {
     if (pressedOnHost || !host || !launcher) return false;
@@ -344,7 +370,7 @@ export function mountCompanionSkills(options: {
     palette.hidden = true;
     if (!preserveIntent) openRequested = false;
     selectionRegion = null;
-    tooltip.hidden = true;
+    hideTooltip();
     hold(false);
     observeInteraction();
     if (returnFocus && launcher?.isConnected && !launcher.hidden) {
@@ -359,8 +385,8 @@ export function mountCompanionSkills(options: {
     inputMode = 'mouse';
     const target = options.getHost();
     pointerPoint = { x: event.clientX, y: event.clientY };
-    hoveredHost = target && event.composedPath().includes(target) ? target : null;
-    if (target && event.composedPath().includes(target)) open();
+    hoveredHost = onLauncher(event, target) ? target : null;
+    if (hoveredHost) open();
     else if (!inRegion(event.target) && !nearRegion({ x: event.clientX, y: event.clientY })) close();
   }, listenerOptions);
   document.addEventListener('pointerout', (event) => {
@@ -378,7 +404,7 @@ export function mountCompanionSkills(options: {
     inputMode = 'mouse';
     const target = options.getHost();
     pointerPoint = { x: event.clientX, y: event.clientY };
-    hoveredHost = target && event.composedPath().includes(target) ? target : null;
+    hoveredHost = onLauncher(event, target) ? target : null;
     if (pressedOnHost) return;
     if (palette.hidden) {
       if (hoveredHost) open();
@@ -390,7 +416,7 @@ export function mountCompanionSkills(options: {
   document.addEventListener('focusin', (event) => {
     if (restoringFocus || pressedOnHost) return;
     const target = options.getHost();
-    if (inputMode === 'keyboard' && target && event.composedPath().includes(target)) open();
+    if (inputMode === 'keyboard' && onLauncher(event, target)) open();
     else if (!inRegion(event.target)) close();
   }, listenerOptions);
   document.addEventListener('focusout', () => {
@@ -399,11 +425,10 @@ export function mountCompanionSkills(options: {
   document.addEventListener('pointerdown', (event) => {
     inputMode = event.pointerType === 'touch' ? 'touch' : 'mouse';
     const target = options.getHost();
-    pressedOnHost = !!target && event.composedPath().includes(target);
+    pressedOnHost = onLauncher(event, target);
     pointerPoint = inputMode === 'mouse' ? { x: event.clientX, y: event.clientY } : null;
     hoveredHost = inputMode === 'mouse' && pressedOnHost ? target : null;
-    if (pressedOnHost) close();
-    if (event.pointerType === 'touch' && target && event.composedPath().includes(target))
+    if (event.pointerType === 'touch' && pressedOnHost)
       touchStart = { x: event.clientX, y: event.clientY };
     else touchStart = null;
     if (!inRegion(event.target)) close();
@@ -411,9 +436,9 @@ export function mountCompanionSkills(options: {
   document.addEventListener('pointerup', (event) => {
     pressedOnHost = false;
     const target = options.getHost();
-    if (event.pointerType === 'touch' && touchStart && target && event.composedPath().includes(target) &&
+    if (event.pointerType === 'touch' && touchStart && onLauncher(event, target) &&
       !event.defaultPrevented && Math.hypot(event.clientX - touchStart.x, event.clientY - touchStart.y) < 6) open();
-    else if (event.pointerType !== 'touch' && target && event.composedPath().includes(target) && !event.defaultPrevented) {
+    else if (event.pointerType !== 'touch' && onLauncher(event, target) && !event.defaultPrevented) {
       pointerPoint = { x: event.clientX, y: event.clientY }; hoveredHost = target; open();
     }
     touchStart = null;
@@ -447,6 +472,7 @@ export function mountCompanionSkills(options: {
     if (destroyed) return;
     destroyed = true;
     commandSequence++; selectionRegion = null; hold(false); abort.abort(); observer.disconnect();
+    palette.hidden = true; reportPlacement();
     palette.remove(); tooltip.remove();
   } };
 }

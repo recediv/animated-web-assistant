@@ -130,6 +130,7 @@ export function createInitializer(
         restore: () => instance.restore(),
         setMotion: (motion) => instance.setMotion?.(motion) ?? Promise.resolve(),
         setInteractionHold: (hold) => instance.setInteractionHold?.(hold),
+        setSpeechExclusion: (region) => instance.setSpeechExclusion?.(region),
         lookAt: (point) => instance.lookAt?.(point),
         preparePagePush: (side) => instance.preparePagePush?.(side) ?? Promise.resolve(false),
         setPagePushProgress: (progress) => instance.setPagePushProgress?.(progress),

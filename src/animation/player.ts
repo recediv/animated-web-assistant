@@ -22,10 +22,13 @@ export class SpritePlayer {
   private size = 96;
   private enabled = true;
   private requestedPose: PoseName | null = null;
+  private transition: { previous: HTMLCanvasElement; startedAt: number; duration: number } | null = null;
+  private blendedFrame = false;
   private context: CanvasRenderingContext2D | null;
 
   constructor(private canvas: HTMLCanvasElement, private poster: HTMLImageElement,
-    private assets: AssistantConfig['assets'], private onEnd: (result: PlaybackResult) => void, graphics?: PreparedGraphics) {
+    private assets: AssistantConfig['assets'], private onEnd: (result: PlaybackResult) => void, graphics?: PreparedGraphics,
+    private onDraw?: () => void) {
     this.context = canvas.getContext('2d');
     if (graphics) {
       this.manifest = graphics.manifest;
@@ -62,7 +65,7 @@ export class SpritePlayer {
     if (!enabled) this.stop();
   }
 
-  play(clipName: MotionClipName, repetitions = 1): boolean {
+  play(clipName: MotionClipName, repetitions = 1, transitionMs = 0): boolean {
     if (!this.enabled || this.destroyed || this.failed || !this.context) return false;
     this.cancel();
     this.playing = true;
@@ -89,6 +92,7 @@ export class SpritePlayer {
       }
       if (generation !== this.generation || this.destroyed || !this.enabled) return;
       const started = performance.now();
+      this.beginTransition(transitionMs, started);
       const cycleDuration = frames.length * 1000 / clip.fps;
       const repeatCount = Number.isFinite(repetitions) ? Math.max(1, Math.min(8, Math.floor(repetitions))) : 1;
       const duration = cycleDuration * repeatCount;
@@ -104,10 +108,10 @@ export class SpritePlayer {
           this.onEnd('completed');
           return;
         }
-        this.draw(frames[Math.floor(elapsed * clip.fps / 1000) % frames.length]!, sheet);
+        this.draw(frames[Math.floor(elapsed * clip.fps / 1000) % frames.length]!, sheet, now);
         this.raf = requestAnimationFrame(tick);
       };
-      this.draw(frames[0]!, sheet);
+      this.draw(frames[0]!, sheet, started);
       this.raf = requestAnimationFrame(tick);
     }).catch(() => {
       if (!this.enabled || this.destroyed || generation !== this.generation) return;
@@ -169,6 +173,7 @@ export class SpritePlayer {
     this.generation++;
     this.requestedPose = null;
     this.playing = false;
+    this.transition = null;
     if (this.raf) cancelAnimationFrame(this.raf);
     this.raf = 0;
   }
@@ -274,8 +279,21 @@ export class SpritePlayer {
     return this.loading;
   }
 
-  private draw(frame: number, sheet = 'main'): void {
-    if (this.destroyed || (frame === this.lastFrame && sheet === this.lastSheet) || !this.manifest || !this.context) return;
+  private beginTransition(duration: number, startedAt: number): void {
+    if (!Number.isFinite(duration) || duration <= 0 || this.canvas.hidden || this.lastFrame < 0) return;
+    const previous = document.createElement('canvas');
+    previous.width = this.canvas.width;
+    previous.height = this.canvas.height;
+    try {
+      const context = previous.getContext('2d');
+      if (!context) return;
+      context.drawImage(this.canvas, 0, 0);
+      this.transition = { previous, startedAt, duration: Math.min(duration, 200) };
+    } catch { /* A transition is optional; the requested clip can still play. */ }
+  }
+
+  private draw(frame: number, sheet = 'main', now = performance.now()): void {
+    if (this.destroyed || (!this.transition && !this.blendedFrame && frame === this.lastFrame && sheet === this.lastSheet) || !this.manifest || !this.context) return;
     const { cell } = this.manifest;
     const atlas = sheet === 'main' ? this.manifest.atlas : this.manifest.atlases?.[sheet];
     const image = sheet === 'main' ? this.image : this.sheetImages.get(sheet);
@@ -283,6 +301,10 @@ export class SpritePlayer {
     const sx = (frame % atlas.columns) * cell.width;
     const sy = Math.floor(frame / atlas.columns) * cell.height;
     const composition = this.context.globalCompositeOperation;
+    const alpha = this.context.globalAlpha;
+    const transition = this.transition;
+    const progress = transition ? Math.max(0, Math.min(1, (now - transition.startedAt) / transition.duration)) : 1;
+    const weight = progress * progress * (3 - 2 * progress);
     if (this.facing === -1) {
       this.context.save();
       this.context.translate(this.canvas.width, 0);
@@ -291,18 +313,38 @@ export class SpritePlayer {
     // Replace the complete cell, including transparency, without erasing the
     // displayed frame first. A failed draw leaves that frame available to retry.
     this.context.globalCompositeOperation = 'copy';
+    this.context.globalAlpha = weight;
     try {
       this.context.drawImage(image, sx, sy, cell.width, cell.height, 0, 0, this.canvas.width, this.canvas.height);
     } catch { return; }
     finally {
       if (this.facing === -1) this.context.restore();
       this.context.globalCompositeOperation = composition;
+      this.context.globalAlpha = alpha;
     }
+    if (transition && progress < 1) {
+      // Blend premultiplied pixels so the overlapping body stays opaque.
+      this.context.globalCompositeOperation = 'lighter';
+      this.context.globalAlpha = 1 - weight;
+      try {
+        this.context.drawImage(transition.previous, 0, 0, this.canvas.width, this.canvas.height);
+      } catch {
+        this.transition = null;
+        this.lastFrame = -1;
+        this.draw(frame, sheet, now);
+        return;
+      } finally {
+        this.context.globalCompositeOperation = composition;
+        this.context.globalAlpha = alpha;
+      }
+    } else this.transition = null;
+    this.blendedFrame = !!transition && progress < 1;
     this.lastFrame = frame;
     this.lastSheet = sheet;
     this.canvas.dataset.frame = String(frame);
     this.canvas.dataset.sheet = sheet;
     this.canvas.hidden = false;
     this.poster.hidden = true;
+    try { this.onDraw?.(); } catch { /* Input geometry cannot stop sprite playback. */ }
   }
 }

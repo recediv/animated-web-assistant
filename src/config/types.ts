@@ -60,6 +60,7 @@ export interface AssistantInstance {
   setMotion?(motion: 'system' | 'off'): Promise<void>;
   /** Keep automatic movement still while a companion control is being used. */
   setInteractionHold?(hold: boolean): void;
+  setSpeechExclusion?(region: { left: number; top: number; width: number; height: number } | null): void;
   /** One finite eye direction update while companion controls hold the actor still. */
   lookAt?(point: { x: number; y: number }): void;
   preparePagePush?(side: 'left' | 'right'): Promise<boolean>;

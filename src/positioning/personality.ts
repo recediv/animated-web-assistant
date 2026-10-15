@@ -128,11 +128,14 @@ export class PersonalityMotion {
   get offset(): Readonly<Point> {
     return { ...this.current };
   }
+  get airborne(): boolean {
+    return this.valid() && Math.abs(this.current.y - this.ground()) > .5;
+  }
   get needsRecovery(): boolean {
     return (
       this.valid() &&
       !this.isDragging &&
-      (Math.abs(this.current.y - this.ground()) > 0.5 ||
+      (this.airborne ||
         this.horizontalRecoveryRequired(this.current))
     );
   }
@@ -599,7 +602,8 @@ export class PersonalityMotion {
     this.apply(this.dragBounded(offset));
   }
   release(options: ReleaseOptions = {}): Promise<void> {
-    if (!this.isDragging) return this.route?.promise ?? Promise.resolve();
+    // A press may interrupt a fall without ever crossing the drag threshold.
+    if (!this.isDragging && (this.route || !this.needsRecovery)) return this.route?.promise ?? Promise.resolve();
     this.isDragging = false;
     const landing = this.bounded({ x: this.current.x, y: this.ground() });
     this.restingX = landing.x;
@@ -667,7 +671,7 @@ export class PersonalityMotion {
       ];
     } else {
       from.y = bounds.top - this.size - 8;
-      stages = this.fallStages(from, this.sample() < 0.5, true);
+      stages = this.fallStages(from, true, true);
       for (const stage of stages) stage.arrival = arrival;
     }
     this.apply(from);
@@ -710,20 +714,13 @@ export class PersonalityMotion {
     const target = { x: from.x, y: this.ground() };
     const height = Math.max(0, target.y - from.y);
     const stages: Stage[] = [];
-    if (parachute && height >= 100) {
-      const deployed = { x: from.x, y: from.y + Math.min(80, height * 0.25) };
-      stages.push({
-        phase: 'fall',
-        duration: 240,
-        from,
-        to: deployed,
-        curve: 'gravity',
-        bounds: entering ? 'free' : undefined,
-      });
+    if (parachute && height > this.size * 4) {
+      // Choose the parachute pose immediately; a free-fall intro would briefly
+      // show its frightened face before switching to the calm canopy pose.
       stages.push({
         phase: 'parachute',
-        duration: clamp(((target.y - deployed.y) / 180) * 1000, 650, 2200),
-        from: deployed,
+        duration: clamp((height / 180) * 1000, 650, 2200),
+        from,
         to: target,
         curve: 'linear',
         groundTo: true,

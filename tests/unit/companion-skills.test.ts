@@ -140,6 +140,17 @@ describe('companion skill placement', () => {
 });
 
 describe('companion skills interaction and lifetime', () => {
+  it('opens on the character itself and keeps other host content from opening the scene menu', () => {
+    const { host, launcher, palette, setInteractionHold } = setup();
+    const reply = document.createElement('button');
+    host.shadowRoot!.append(reply);
+    pointer(reply, 'pointerover'); pointer(reply, 'pointermove'); reply.focus();
+    expect(palette.hidden).toBe(true);
+    expect(setInteractionHold).not.toHaveBeenCalled();
+    pointer(launcher, 'pointerover');
+    expect(palette.hidden).toBe(false);
+  });
+
   it('opens the seven-button fallback on a short screen and dispatches the guitar through touch and keyboard', () => {
     vi.stubGlobal('innerWidth',667); vi.stubGlobal('innerHeight',375);
     const available = [...scenes,{ name:'guitar',title:'Лесной рок',description:'Description',glyph:'♫' }];
@@ -413,12 +424,14 @@ describe('companion skills interaction and lifetime', () => {
     controller!.destroy(); pointer(launcher, 'pointerover');
     expect(document.querySelector('.companion-skills')).toBeNull();
   });
-  it('closes at pointerdown before drag starts, rejects drag hover/focus, and never reopens on dragged touch release', async () => {
+  it('keeps controls on a stationary press, closes on actual drag and never reopens on dragged touch release', async () => {
     const { host, launcher, palette } = setup(); pointer(launcher, 'pointerover');
-    pointer(launcher, 'pointerdown'); expect(palette.hidden).toBe(true);
-    launcher.focus(); pointer(launcher, 'pointerover'); expect(palette.hidden).toBe(true);
+    pointer(launcher, 'pointerdown'); expect(palette.hidden).toBe(false);
+    launcher.focus(); pointer(launcher, 'pointerover'); expect(palette.hidden).toBe(false);
     launcher.dataset.motion = 'drag'; host.dataset.motion = 'drag';
-    await flush(); pointer(launcher, 'pointerup', { pointerType: 'touch', prevented: true });
+    await flush(); expect(palette.hidden).toBe(true);
+    launcher.focus(); pointer(launcher, 'pointerover'); expect(palette.hidden).toBe(true);
+    pointer(launcher, 'pointerup', { pointerType: 'touch', prevented: true });
     pointer(launcher, 'pointerover'); expect(palette.hidden).toBe(true);
     launcher.dataset.motion = ''; host.dataset.motion = '';
     pointer(launcher, 'pointerover'); expect(palette.hidden).toBe(false);

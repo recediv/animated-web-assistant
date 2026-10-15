@@ -54,8 +54,10 @@ export class ScenarioController {
   private lastScroll = -Infinity;
   private scrolling = false;
   private interactionHeld = false;
+  private pointerHeld = false;
   private greetingHeld = false;
   private lastPersonalityReaction = -Infinity;
+  private lastPetAt = -Infinity;
   private physicallyBusy = false;
   private physicalWasUserInitiated = false;
   private firstPhysicalFinished = false;
@@ -85,6 +87,8 @@ export class ScenarioController {
   get isScrolling(): boolean { return this.scrolling; }
   get interacting(): boolean { return this.physicallyBusy; }
   get interactionOnHold(): boolean { return this.interactionHeld; }
+  private get automaticHeld(): boolean { return this.interactionHeld || this.pointerHeld; }
+  private get speechActive(): boolean { return this.ready && this.available && !this.scrolling && !this.greetingHeld; }
 
   /** Pause automatic deadlines while the view loads, retaining scroll activity. */
   setReady(ready: boolean): void {
@@ -99,6 +103,12 @@ export class ScenarioController {
     if (!resumeAutomatic) this.reactionDepth++;
     try { this.reconcile(); }
     finally { if (!resumeAutomatic) this.reactionDepth--; }
+  }
+
+  setPointerHold(hold: boolean): void {
+    if (this.destroyed || this.pointerHeld === hold) return;
+    this.pointerHeld = hold;
+    this.reconcile();
   }
 
   clearPoseForLook(): void {
@@ -120,7 +130,7 @@ export class ScenarioController {
     this.preferences = { ...preferences };
     this.persistent = persistent;
     this.variation.setPermission(persistent);
-    if (!this.motionAllowed) { this.interactionHeld = false; this.stopAutomatic(); this.animate('static'); }
+    if (!this.motionAllowed) { this.interactionHeld = false; this.pointerHeld = false; this.stopAutomatic(); this.animate('static'); }
     if (!persistent) this.cancel('greeting');
     this.reconcile();
     if (this.motionAllowed) this.resumeAutomatic();
@@ -131,7 +141,7 @@ export class ScenarioController {
     this.compact = compact;
     this.reduced = reduced;
     if (changed) {
-      if (!this.motionAllowed) { this.interactionHeld = false; this.stopAutomatic(); this.animate('static'); }
+      if (!this.motionAllowed) { this.interactionHeld = false; this.pointerHeld = false; this.stopAutomatic(); this.animate('static'); }
       if (this.config.behavior === 'lively') this.resumeAutomatic();
       else this.scheduleIdle();
       this.hooks.change();
@@ -198,19 +208,29 @@ export class ScenarioController {
 
   pet(): void {
     if (!this.available || this.destroyed) return;
+    const now = Date.now();
+    if (now - this.lastPetAt < 2500) return;
+    this.lastPetAt = now;
     const sleeping = this.snapshot.sleeping;
     this.reaction(() => {
-      this.activity();
       this.cancel('greeting');
       this.cancel('attention');
-      this.animate(sleeping ? 'wake' : 'wave');
-      this.speak(this.variation.reply(sleeping ? 'wake' : 'pet'), 4500);
+      if (!this.physicallyBusy && (sleeping || (this.snapshot.animation === 'static' && !this.snapshot.pose))) {
+        this.activity();
+        this.animate(sleeping ? 'wake' : 'wink');
+      } else {
+        // A pet counts as activity without interrupting the current scene.
+        this.sleepDue = false;
+        this.schedule('sleep', this.config.timings.sleepAfterMs, () => this.sleep());
+      }
+      if (!this.snapshot.greetingVisible) this.speak(this.variation.reply(sleeping ? 'wake' : 'pet'), 4500);
     });
   }
 
   react(kind: 'product:enter' | 'product:leave' | 'cart:error' | 'pointer:near'): void {
-    if (this.config.behavior !== 'lively' || !this.available || this.destroyed || !this.motionAllowed || this.scrolling || this.physicallyBusy || this.interactionHeld) return;
+    if (this.config.behavior !== 'lively' || !this.available || this.destroyed || !this.motionAllowed || this.scrolling || this.physicallyBusy || this.automaticHeld) return;
     if (kind !== 'cart:error' && QUIET_GESTURES.includes(this.snapshot.animation as QuietScene)) return;
+    if (kind === 'pointer:near' && !this.canYieldAnimation()) return;
     if (kind === 'product:leave') return;
     const now = Date.now();
     if (kind !== 'cart:error' && now - this.lastPersonalityReaction < this.personalityCooldown) return;
@@ -257,7 +277,7 @@ export class ScenarioController {
 
   perform(scene: MotionKind, userInitiated = true): void {
     if (this.config.behavior !== 'lively' || !this.available || this.destroyed || !this.motionAllowed ||
-        !this.hooks.motion || ((this.scrolling || this.interactionHeld) && !userInitiated)) return;
+        !this.hooks.motion || ((this.scrolling || this.automaticHeld) && !userInitiated)) return;
     if (!userInitiated && (this.physicallyBusy || this.snapshot.sleeping || this.snapshot.pose ||
       !this.canYieldAnimation())) {
       this.pendingScene = true;
@@ -284,6 +304,9 @@ export class ScenarioController {
     if (this.config.behavior !== 'lively' || !this.available || this.destroyed || (this.scrolling && !userInitiated)) return false;
     this.finishQuiet();
     if (this.physicallyBusy) return true;
+    // The physical stage supplies the waking pose. Emitting a separate static
+    // animation here would cancel the pointer gesture that started the lift.
+    this.snapshot.sleeping = false;
     if (userInitiated) {
       if (this.scrolling) { this.scrolling = false; this.cancel('scroll-settle'); this.reconcile(); }
       this.activity();
@@ -291,7 +314,6 @@ export class ScenarioController {
     this.physicallyBusy = true;
     this.autonomousWave = false;
     this.physicalWasUserInitiated = userInitiated;
-    this.snapshot.sleeping = false;
     this.snapshot.pose = null;
     this.cancel('pose');
     this.cancel('greeting');
@@ -391,7 +413,7 @@ export class ScenarioController {
     if (this.eventIds.size > 100) this.eventIds.delete(this.eventIds.values().next().value!);
     const now = Date.now();
     if (now - event.occurredAt > 5000 || event.occurredAt - now > 1000 || !this.available ||
-        now - this.lastReaction < this.config.timings.cartReactionCooldownMs || this.snapshot.state === 'open' || !this.motionAllowed || this.scrolling || this.physicallyBusy) return false;
+        now - this.lastReaction < this.config.timings.cartReactionCooldownMs || this.snapshot.state === 'open' || !this.motionAllowed || this.scrolling || this.physicallyBusy || this.pointerHeld) return false;
     this.lastReaction = now;
     this.cancel('greeting');
     this.snapshot.greetingVisible = false;
@@ -410,7 +432,7 @@ export class ScenarioController {
     if (hold && timer.id !== undefined) {
       clearTimeout(timer.id); timer.id = undefined;
       timer.remaining = Math.max(0, timer.deadline - Date.now());
-    } else if (!hold && timer.id === undefined && this.active) this.startTimer('bubble', timer);
+    } else if (!hold && timer.id === undefined && this.speechActive) this.startTimer('bubble', timer);
   }
 
   finishAnimation(): void {
@@ -425,6 +447,7 @@ export class ScenarioController {
   destroy(): void {
     this.destroyed = true;
     this.interactionHeld = false;
+    this.pointerHeld = false;
     this.clearTimers();
     this.pendingScene = false;
     this.sleepDue = false;
@@ -438,20 +461,20 @@ export class ScenarioController {
     const available = this.available;
     if (!available) {
       this.interactionHeld = false;
+      this.pointerHeld = false;
       this.snapshot.state = this.preferences.hidden ? 'hiddenByUser' : 'suppressed';
       this.snapshot.greetingVisible = false;
       this.animate('static');
     } else if (this.snapshot.state === 'hiddenByUser' || this.snapshot.state === 'suppressed') this.snapshot.state = 'closed';
-    const timerActive = this.ready && available && !this.scrolling && !this.interactionHeld;
-    if (this.active !== timerActive) {
-      this.active = timerActive;
-      for (const [name, timer] of this.timers) {
-        if (name === 'scroll-settle') continue;
-        if (timerActive && !(name === 'bubble' && this.greetingHeld)) this.startTimer(name, timer);
-        else if (timer.id !== undefined) {
-          clearTimeout(timer.id); timer.id = undefined;
-          timer.remaining = Math.max(0, timer.deadline - Date.now());
-        }
+    const timerActive = this.ready && available && !this.scrolling && !this.automaticHeld;
+    this.active = timerActive;
+    for (const [name, timer] of this.timers) {
+      if (name === 'scroll-settle') continue;
+      const running = name === 'bubble' ? this.speechActive : timerActive;
+      if (running && timer.id === undefined) this.startTimer(name, timer);
+      else if (!running && timer.id !== undefined) {
+        clearTimeout(timer.id); timer.id = undefined;
+        timer.remaining = Math.max(0, timer.deadline - Date.now());
       }
     }
     this.hooks.change();
@@ -504,7 +527,7 @@ export class ScenarioController {
     if (this.config.behavior === 'lively' && !this.motionAllowed) { this.cancel('idle'); return; }
     const delay = delayOverride ?? (this.config.behavior === 'lively' ? this.variation.between(1200, 2500) : configured);
     this.schedule('idle', delay, () => {
-      if (this.available && !this.scrolling && !this.interactionHeld && !this.physicallyBusy && this.snapshot.state === 'closed' && !this.snapshot.sleeping &&
+      if (this.available && !this.scrolling && !this.automaticHeld && !this.physicallyBusy && this.snapshot.state === 'closed' && !this.snapshot.sleeping &&
           !this.snapshot.pose && this.snapshot.animation === 'static' && this.motionAllowed) {
         let gesture: MicroGesture = 'idle';
         if (this.config.behavior === 'lively' && this.microStarted) {
@@ -544,7 +567,7 @@ export class ScenarioController {
   }
 
   private canYieldAnimation(): boolean {
-    return ['static', 'idle', 'wink'].includes(this.snapshot.animation) ||
+    return ['static', 'idle'].includes(this.snapshot.animation) ||
       (this.snapshot.animation === 'wave' && this.autonomousWave);
   }
 
@@ -563,7 +586,7 @@ export class ScenarioController {
   }
 
   private tryPendingScene(): boolean {
-    if (!this.pendingScene || !this.available || this.scrolling || this.interactionHeld || this.physicallyBusy || this.snapshot.sleeping ||
+    if (!this.pendingScene || !this.available || this.scrolling || this.automaticHeld || this.physicallyBusy || this.snapshot.sleeping ||
       this.snapshot.pose || !this.canYieldAnimation() || !this.motionAllowed || this.destroyed) return false;
     this.pendingScene = false;
     this.perform(this.variation.scene(), false);
@@ -571,7 +594,7 @@ export class ScenarioController {
   }
 
   private resumeAutomatic(afterClip = false): void {
-    if (this.config.behavior !== 'lively' || !this.ready || this.destroyed || this.reactionDepth > 0 || !this.available || this.scrolling || this.interactionHeld || this.physicallyBusy ||
+    if (this.config.behavior !== 'lively' || !this.ready || this.destroyed || this.reactionDepth > 0 || !this.available || this.scrolling || this.automaticHeld || this.physicallyBusy ||
       !this.motionAllowed || this.snapshot.sleeping) return;
     if (this.sleepDue) { this.sleep(); if (this.snapshot.sleeping || this.sleepDue) return; }
     if (this.tryPendingScene()) return;
@@ -606,7 +629,8 @@ export class ScenarioController {
     this.cancel(name);
     const timer = { remaining, deadline: 0, callback, id: undefined as ReturnType<typeof setTimeout> | undefined };
     this.timers.set(name, timer);
-    if ((this.active || force) && !(name === 'bubble' && this.greetingHeld)) this.startTimer(name, timer);
+    const active = name === 'bubble' ? this.speechActive : this.active;
+    if ((active || force) && !(name === 'bubble' && this.greetingHeld)) this.startTimer(name, timer);
   }
 
   private startTimer(name: string, timer: { remaining: number; deadline: number; id?: ReturnType<typeof setTimeout>; callback: () => void }): void {

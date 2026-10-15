@@ -491,14 +491,14 @@ async function run(origin) {
         pathToFileURL(resolve(root, 'src/animation/player.js')).href
       );
       const actualPlay = SpritePlayer.prototype.play;
-      SpritePlayer.prototype.play = function (clip, repetitions) {
+      SpritePlayer.prototype.play = function (clip, repetitions, transitionMs) {
         playbackTrace.push({
           clip,
           repetitions,
           at: performance.now(),
           drawStart: drawCalls.length,
         });
-        return actualPlay.call(this, clip, repetitions);
+        return actualPlay.call(this, clip, repetitions, transitionMs);
       };
     }
     if (autonomousOnly || controlledQuiet) {
@@ -1520,8 +1520,8 @@ async function run(origin) {
         actualClips.push({ scene: name, distinctFrames: new Set(frames).size });
       }
       // Explicit choices replace a running reaction immediately; hover alone does not.
-      for (const preceding of ['wave', 'happy']) {
-        if (preceding === 'wave') await demo.assistant.open();
+      for (const preceding of ['wink', 'happy']) {
+        if (preceding === 'wink') await demo.assistant.open();
         else {
           const added = demo.addProduct('electric-sun', { delay: 0 });
           await wait(32); await added;
@@ -1606,7 +1606,7 @@ async function run(origin) {
         }
         if (cancellation === 'off') await demo.assistant.setMotion('system');
         else await demo.assistant.restore();
-        await until(() => !(element.dataset.motion || ['wave', 'wake'].includes(element.dataset.animation)), 'restore finishes');
+        await until(() => !element.dataset.motion && element.dataset.animation === 'static', 'restore finishes');
       }
       demo.assistant.perform = actualPerform;
       await demo.assistant.destroy(); await wait(0);
@@ -1616,7 +1616,7 @@ async function run(origin) {
       console.log(JSON.stringify({ result: 'PASS', mode: 'skills-companion', layout: mobile ? 'compact' : 'desktop',
         clips: actualClips, checked: ['actual7 SVG buttons/public performer/frames/completion', 'immediate replacement',
           'first real pointer/focus/up/click (touch on compact)', 'up/up-left/up-right finite gaze', 'button hover gaze/curiosity priority/quiet protected', 'pending automatic route cannot erase click', 'repeated nose restart', 'cart first press',
-          'persistent scratch/nose/all7 sequential clicks with held pending peek', 'hover freezes position/no automatic escape/0RAF', 'no peek controls', 'fresh leisure nose', 'nose after wave/happy/sit', 'nose during scroll', 'latest selection', 'off/hide release', 'cleanup'],
+          'persistent scratch/nose/all7 sequential clicks with held pending peek', 'hover freezes position/no automatic escape/0RAF', 'no peek controls', 'fresh leisure nose', 'nose after wink/happy/sit', 'nose during scroll', 'latest selection', 'off/hide release', 'cleanup'],
         limitations: 'JSDOM supplies browser primitives; native arc pixels and pointer hit layout were not rendered.' }));
       return;
     }
@@ -3125,6 +3125,11 @@ async function run(origin) {
       return;
     }
     assert.equal(launcher.hidden, false, 'real launcher should be visible');
+    // The restore click above is a separate pet; let its reaction cooldown end.
+    if (!calm && earlyClick) await wait(2500);
+    if (!calm) await waitForMotion();
+    const precedingSpeech = !shadow.querySelector('.pika-a-greeting').hidden
+      ? shadow.querySelector('.pika-a-greeting').textContent : null;
     if (!calm) {
       pointer(launcher, 'pointerover', center(), 'mouse');
       pointer(launcher, 'pointerdown', center(), 'mouse');
@@ -3168,8 +3173,10 @@ async function run(origin) {
         'lively tap shows speech',
       );
       assert.ok(
-        REPLIES.pet.includes(shadow.querySelector('.pika-a-greeting').textContent),
-        'petting answers from its own varied reply set',
+        precedingSpeech !== null
+          ? shadow.querySelector('.pika-a-greeting').textContent === precedingSpeech
+          : REPLIES.pet.includes(shadow.querySelector('.pika-a-greeting').textContent),
+        'petting keeps an existing reply or shows one from its own reply set',
       );
       assert.equal(
         document.documentElement.classList.contains('anime-assistant-scroll-locked'),
@@ -3177,14 +3184,14 @@ async function run(origin) {
       );
       assert.equal(history.state?.__animeShopAssistantOverlay_v1, undefined);
       await wait(1700);
-      assert.equal(rafs.size, 0, 'finite wave releases requestAnimationFrame');
+      assert.equal(rafs.size, 0, 'finite pet reaction releases requestAnimationFrame');
       pointer(launcher, 'pointerout', center(), 'mouse');
       pointer(document.body, 'pointerover', { x: center().x - 400, y: center().y }, 'mouse');
       assert.equal(document.querySelector('.companion-skills').hidden, true, 'the real mouse leave closes focused controls before cursor look');
       document.dispatchEvent(
         new window.MouseEvent('pointermove', {
           bubbles: true,
-          clientX: center().x - 400,
+          clientX: center().x - launcher.getBoundingClientRect().width * .85,
           clientY: center().y,
         }),
       );
@@ -3197,7 +3204,7 @@ async function run(origin) {
       document.dispatchEvent(
         new window.MouseEvent('pointermove', {
           bubbles: true,
-          clientX: center().x + 400,
+          clientX: center().x + launcher.getBoundingClientRect().width * .85,
           clientY: center().y,
         }),
       );
@@ -3207,6 +3214,12 @@ async function run(origin) {
         String(atlasManifest.poses.right),
         'character looks right toward cursor',
       );
+      document.dispatchEvent(new window.MouseEvent('pointermove', {
+        bubbles: true, clientX: center().x - 400, clientY: center().y,
+      }));
+      await wait(40);
+      assert.equal(shadow.querySelector('canvas').dataset.frame, String(atlasManifest.neutralFrame),
+        'a distant cursor leaves the character looking straight ahead');
       assert.equal(rafs.size, 0, 'cursor look is a finite layout/frame update');
       await demo.assistant.setMotion('off');
       await wait(40);
@@ -3601,16 +3614,17 @@ async function run(origin) {
       const bounded = launcher.getBoundingClientRect();
       assert.ok(bounded.left >= 0 && bounded.top >= 0, 'drag is clamped to visible viewport');
       document.dispatchEvent(new window.Event('scroll', { bubbles: true }));
-      pointer(launcher, 'pointermove', { x: 100, y: 80 });
+      const withCanopy = process.argv.includes('--canopy');
+      const releaseTop = Math.max(4, feetFloor() - bounded.height * (11 / 12 + (withCanopy ? 5 : 2)));
+      const releasePoint = { x: 100, y: -200 + releaseTop - bounded.top };
+      pointer(launcher, 'pointermove', releasePoint);
       assert.equal(
         element.dataset.motion,
         'drag',
         'human drag remains responsive while a scroll event is observed',
       );
       const droppedX = launcher.getBoundingClientRect().left;
-      selectChance(0.65, process.argv.includes('--canopy'), () =>
-        pointer(launcher, 'pointerup', { x: 100, y: 80 }),
-      );
+      pointer(launcher, 'pointerup', releasePoint);
       assert.equal(pointerCaptures.size, 0, 'release frees pointer capture');
       const stopDropScroll = keepScrolling();
       try {

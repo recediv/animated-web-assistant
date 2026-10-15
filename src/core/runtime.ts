@@ -55,8 +55,10 @@ export class AssistantRuntime implements AssistantInstance {
   private shown = false;
   private pointerFrame = 0;
   private pointerNear = false;
+  private pointerLooking = false;
   private cursor = { x: 0, y: 0 };
   private paletteLook: { x: number; y: number } | null = null;
+  private greetingHeld = false;
   private pagePush: { side: 'left' | 'right'; ready: boolean; stepsReady: boolean; pushing: boolean; reserved: number; pageKey: string; committed: boolean; viewport: Viewport;
     windowWidth: number; windowHeight: number; viewportScale: number;
     cancelled: Promise<boolean>; cancel(): void } | null = null;
@@ -112,9 +114,9 @@ export class AssistantRuntime implements AssistantInstance {
       if (this.controller.snapshot.pose) { this.player.setFacing(1); this.player.look(this.controller.snapshot.pose); }
       this.recoverPosition();
       if (this.paletteLook) this.lookAt(this.paletteLook);
-    }, graphics);
+    }, graphics, () => this.view.updateHitRegion());
     this.motion = new PersonalityMotion(this.view.launcher, (phase, metadata) => this.motionStage(phase, metadata),
-      (offset) => this.view.setMotionOffset(offset));
+      (offset) => this.updateSpeechPosition(offset));
     this.player.setEnabled(this.preferences.get().motion === 'system' && !this.reducedQuery.matches);
     this.viewport = new ViewportObserver(() => this.position());
     this.pageStyles.rel = 'stylesheet'; this.pageStyles.href = config.assets.cssUrl;
@@ -171,13 +173,21 @@ export class AssistantRuntime implements AssistantInstance {
         const rect = this.view.launcher.getBoundingClientRect();
         const dx = this.cursor.x - (rect.left + rect.width / 2);
         const dy = this.cursor.y - (rect.top + rect.height / 2);
-        const near = Math.hypot(dx, dy) < 140;
+        const distance = Math.hypot(dx, dy);
+        const near = distance < rect.width * .65;
         if (near && !this.pointerNear) this.controller.react('pointer:near');
         this.pointerNear = near;
-        if (this.controller.interactionOnHold) { this.lookAt(this.cursor); return; }
         if (!this.controller.snapshot.sleeping && !this.controller.snapshot.pose && this.controller.snapshot.animation === 'static') {
+          // Explicit attention to a scene button can reach above the character;
+          // ordinary cursor tracking stays within one character size.
+          if (this.controller.interactionOnHold && this.paletteLook) return;
+          if (distance > rect.width) {
+            if (this.pointerLooking) { this.player.stop(); this.pointerLooking = false; }
+            return;
+          }
           this.player.setFacing(1);
           this.player.look(Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down'));
+          this.pointerLooking = true;
         }
       });
     }, { ...options, passive: true });
@@ -222,7 +232,7 @@ export class AssistantRuntime implements AssistantInstance {
         this.track('motion_changed');
       },
       hide: () => { void this.hide(); },
-      holdGreeting: (hold) => this.controller.holdGreeting(hold),
+      holdGreeting: (hold) => { this.greetingHeld = hold; this.updateSpeechPosition(); },
       graphicsFailed: () => { void this.destroy(); },
     });
     if (!styled || this.destroyed) { await this.destroy(); return false; }
@@ -267,10 +277,6 @@ export class AssistantRuntime implements AssistantInstance {
   open(): Promise<void> {
     if (this.config.behavior === 'lively') {
       if (this.ready && !this.destroyed) {
-        this.finishPagePush();
-        const appearing = this.entering;
-        this.cancelMotion();
-        if (appearing) this.motion.spawn();
         this.controller.pet(); this.track('opened');
         this.recoverPosition();
       }
@@ -308,6 +314,12 @@ export class AssistantRuntime implements AssistantInstance {
     }
   }
 
+  setSpeechExclusion(region: { left: number; top: number; width: number; height: number } | null): void {
+    if (this.destroyed || (region && (!Object.values(region).every(Number.isFinite) || region.width < 0 || region.height < 0))) return;
+    this.view.setSpeechExclusion(region);
+    this.updateSpeechPosition();
+  }
+
   lookAt(point: { x: number; y: number }): void {
     if (!this.ready || this.destroyed || !this.controller.available || !this.controller.motionAllowed ||
         !this.controller.interactionOnHold || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return;
@@ -324,6 +336,7 @@ export class AssistantRuntime implements AssistantInstance {
       ? (dx < 0 ? 'up-left' : 'up-right')
       : Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
     this.player.look(direction);
+    this.pointerLooking = true;
   }
 
   async preparePagePush(side: 'left' | 'right'): Promise<boolean> {
@@ -563,7 +576,7 @@ export class AssistantRuntime implements AssistantInstance {
     this.motion.updateBase(placement, placement.motionViewport,
       size, this.config.position, { followGround });
     this.lastGeometry = { viewport, reserved, size };
-    this.view.setMotionOffset(this.motion.offset);
+    this.updateSpeechPosition();
     const hadBlocker = this.controller.blockers.has('no-space');
     if (hadBlocker === placement.room) this.controller.block('no-space', !placement.room);
     if (this.shown) this.recoverPosition();
@@ -575,13 +588,13 @@ export class AssistantRuntime implements AssistantInstance {
     if (this.pagePush && (!this.controller.available || !this.controller.motionAllowed)) this.finishPagePush();
     if (!this.controller.available) this.cancelMotion(true);
     if (this.arrivalPending) this.view.launcher.hidden = true;
-    this.view.setMotionOffset(this.motion.offset);
+    this.updateSpeechPosition();
     if (this.controller.snapshot.state !== 'open' && this.view.dialog.open) void this.closeInternal(false);
     if (!this.shown && this.controller.available && !this.arrivalPending) { this.shown = true; this.track('shown'); }
   }
 
   private resumeAfterScroll(): void {
-    if (!this.ready || this.destroyed || !this.controller.available || this.controller.isScrolling || this.motion.moving) return;
+    if (!this.ready || this.destroyed || !this.controller.available || this.controller.isScrolling || this.dragGesture || this.motion.moving) return;
     if (this.arrivalPending) {
       this.startArrival();
       return;
@@ -606,16 +619,21 @@ export class AssistantRuntime implements AssistantInstance {
 
   private recoverPosition(): void {
     if (!this.ready || this.destroyed || this.pageSuspended || this.config.behavior !== 'lively' || !this.controller.available ||
-        this.controller.isScrolling || this.controller.interactionOnHold || this.motion.moving || !this.motion.needsRecovery ||
+        this.controller.isScrolling || this.controller.interactionOnHold || this.dragGesture || this.motion.moving || !this.motion.needsRecovery ||
         this.controller.snapshot.animation !== 'static') return;
     if (!this.controller.beginPhysical()) return;
     this.motionResult = this.motion.recover({ reducedMotion: !this.controller.motionAllowed });
   }
 
-  private cancelMotion(reset = false): void {
+  private updateSpeechPosition(offset: Readonly<{ x: number; y: number }> = this.motion.offset): void {
+    const visible = this.view.setMotionOffset(offset);
+    this.controller.holdGreeting(this.greetingHeld || visible === false);
+  }
+
+  private cancelMotion(reset = false, preserveCapture = false): void {
     if (this.pagePush) this.finishPagePush();
     this.replacingMotion = true;
-    this.clearDragCapture();
+    if (!preserveCapture) this.clearDragCapture();
     this.motion?.cancel(reset);
     this.replacingMotion = false;
     this.entering = false;
@@ -687,9 +705,13 @@ export class AssistantRuntime implements AssistantInstance {
     if (clip !== 'walk' && clip !== 'climb') this.player.setFacing(1);
     this.controller.physicalStage(clip);
     if (metadata?.activity === 'walk') this.continueWalking();
-    else this.player.play(clip, clip === 'climb' && metadata?.durationMs
-      ? Math.max(1, Math.min(8, Math.ceil(metadata.durationMs / 750)))
-      : clip === 'walk' || clip === 'climb' ? 6 : 1);
+    else {
+      const repetitions = clip === 'climb' && metadata?.durationMs
+        ? Math.max(1, Math.min(8, Math.ceil(metadata.durationMs / 750)))
+        : clip === 'walk' || clip === 'climb' ? 6 : 1;
+      if (clip === 'held' || clip === 'fall' || clip === 'parachute' || clip === 'land') this.player.play(clip, repetitions, 140);
+      else this.player.play(clip, repetitions);
+    }
     if (phase === 'land' && !this.entering) this.controller.physicalSpeech('land');
   }
 
@@ -705,18 +727,24 @@ export class AssistantRuntime implements AssistantInstance {
     launcher.addEventListener('pointerdown', (event) => {
       if (event.button !== 0 || event.isPrimary === false || this.dragGesture || !this.ready || !this.controller.available) return;
       this.suppressClickUntil = 0;
-      this.cancelMotion();
-      this.player.pause();
-      if (!this.controller.beginPhysical(true) || !this.motion.beginDrag()) return;
       this.dragGesture = { id: event.pointerId, startX: event.clientX, startY: event.clientY,
         lastX: event.clientX, lastY: event.clientY, moved: false };
+      launcher.dataset.pressed = 'true';
       try { launcher.setPointerCapture(event.pointerId); } catch { /* Lost pointers are also handled by cancellation. */ }
+      // Keep the current clip playing, but defer new automatic actions until
+      // this press ends. The palette owns a separate, independent hold.
+      this.controller.setPointerHold(true);
+      // A ground press leaves the current scene running. An airborne catch is
+      // already a lift, even before the pointer crosses the movement threshold.
+      if (this.motion.airborne) this.startDragging();
     }, options);
     launcher.addEventListener('pointermove', (event) => {
       const gesture = this.dragGesture;
       if (!gesture || gesture.id !== event.pointerId) return;
       if (!gesture.moved && Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) < 6) return;
       if (!gesture.moved) {
+        // On the ground, only crossing the movement threshold lifts him.
+        if (!this.motion.dragging && !this.startDragging()) return;
         gesture.moved = true; this.view.dataset.dragging = 'true';
         this.controller.physicalSpeech('drag');
       }
@@ -743,22 +771,31 @@ export class AssistantRuntime implements AssistantInstance {
     }, { ...options, capture: true });
   }
 
+  private startDragging(): boolean {
+    this.cancelMotion(false, true);
+    this.player.pause();
+    if (!this.controller.beginPhysical(true)) { this.clearDragCapture(); return false; }
+    if (!this.motion.beginDrag()) {
+      this.clearDragCapture(); this.controller.endPhysical(); return false;
+    }
+    return true;
+  }
+
   private finishDrag(cancelled = false): void {
     const gesture = this.dragGesture;
     if (!gesture) return;
+    // A stationary catch in mid-air still needs a landing after release.
+    const needsRelease = gesture.moved || this.motion.dragging;
     this.clearDragCapture();
-    if (cancelled && gesture.moved) {
-      this.suppressClickUntil = performance.now() + 600;
+    if (cancelled) this.suppressClickUntil = performance.now() + 600;
+    if (cancelled && needsRelease) {
       this.motionResult = this.motion.release({ reducedMotion: true });
       this.player.stop();
       return;
     }
-    if (!gesture.moved) {
-      this.motion.cancel(); this.player.stop(); this.controller.endPhysical();
-      return;
-    }
+    if (!needsRelease) return;
     this.suppressClickUntil = performance.now() + 600;
-    this.motionResult = this.motion.release({ parachute: this.variation.chance(.65),
+    this.motionResult = this.motion.release({ parachute: true,
       reducedMotion: !this.controller.motionAllowed });
   }
 
@@ -766,9 +803,11 @@ export class AssistantRuntime implements AssistantInstance {
     const gesture = this.dragGesture;
     this.dragGesture = null;
     this.view.dataset.dragging = 'false';
+    this.view.launcher.dataset.pressed = 'false';
     if (gesture) {
       try { this.view.launcher.releasePointerCapture(gesture.id); } catch { /* Capture may have been released by the browser. */ }
     }
+    this.controller?.setPointerHold(false);
   }
 
   private async navigate(href: string, actionId: string, cart = false): Promise<void> {

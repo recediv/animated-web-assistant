@@ -44,14 +44,14 @@ class FakeImage {
 
 const fetchManifest = vi.fn();
 
-function setup(withContext = true, graphics?: Omit<PreparedGraphics, 'poster'>) {
+function setup(withContext = true, graphics?: Omit<PreparedGraphics, 'poster'>, onDraw?: () => void) {
   const canvas = document.createElement('canvas');
   const poster = document.createElement('img');
   Object.defineProperties(poster, { complete: { value: true, configurable: true }, naturalWidth: { value: 192, configurable: true } });
   const context = { globalCompositeOperation: 'source-over', clearRect: vi.fn(), drawImage: vi.fn(), save: vi.fn(), restore: vi.fn(), translate: vi.fn(), scale: vi.fn() };
   vi.spyOn(canvas, 'getContext').mockReturnValue(withContext ? context as unknown as CanvasRenderingContext2D : null);
   const onEnd = vi.fn();
-  const player = new SpritePlayer(canvas, poster, assets, onEnd, graphics ? { ...graphics, poster } : undefined);
+  const player = new SpritePlayer(canvas, poster, assets, onEnd, graphics ? { ...graphics, poster } : undefined, onDraw);
   players.push(player);
   return { canvas, poster, context, onEnd, player };
 }
@@ -104,6 +104,19 @@ function useSplitSheets() {
   servedManifest.clips.sit = { sheet: 'leisure', frames: [0, 1, 2, 3, ...Array.from({ length: 5 }, () => [4, 5, 6, 7, 8]).flat(), 9, 10, 11], fps: 8, end: 'neutral' };
   servedManifest.clips.stretch = { sheet: 'leisure', frames: Array.from({ length: 16 }, (_, index) => 36 + index), fps: 8, end: 'neutral' };
 }
+
+it('continues drawing and completes the clip when an input-geometry callback throws', async () => {
+  const onDraw = vi.fn(() => { throw new DOMException('Pixels unreadable', 'SecurityError'); });
+  const { player, canvas, onEnd } = setup(true, undefined, onDraw);
+  expect(player.play('wave')).toBe(true); await ready();
+  expect(canvas.hidden).toBe(false);
+  renderAt(250);
+  expect(onDraw.mock.calls.length).toBeGreaterThan(1);
+  renderAt(atlasManifest.clips.wave.frames.length * 1000 / atlasManifest.clips.wave.fps);
+  expect(onEnd).toHaveBeenCalledExactlyOnceWith('completed');
+  expect(canvas.dataset.frame).toBe(String(atlasManifest.neutralFrame));
+  expect(frameCallbacks.size).toBe(0);
+});
 
 beforeEach(() => {
   vi.useFakeTimers();

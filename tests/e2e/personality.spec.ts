@@ -233,13 +233,13 @@ test.describe('Lively companion', () => {
     });
     // Measure cursor directions from the actual arrival position.
     const box = await launcher(page).boundingBox();
-    await page.mouse.move(Math.max(0, box!.x - 200), box!.y + box!.height / 2);
+    await page.mouse.move(Math.max(0, box!.x - box!.width * .35), box!.y + box!.height / 2);
     const manifest = await (await page.request.get('/assistant/1.0.0/atlas.json')).json();
     await expect(character(page).locator('canvas')).toHaveAttribute(
       'data-frame',
       String(manifest.poses.left),
     );
-    await page.mouse.move(box!.x + box!.width / 2, 20);
+    await page.mouse.move(box!.x + box!.width / 2, box!.y - box!.height * .35);
     await expect(character(page).locator('canvas')).toHaveAttribute(
       'data-frame',
       String(manifest.poses.up),
@@ -508,9 +508,12 @@ test.describe('Lively companion', () => {
     const historyBefore = await page.evaluate(() => history.length);
     await page.mouse.move(center.x, center.y);
     await page.mouse.down();
+    await expect(launcher(page)).toHaveCSS('cursor', 'grabbing');
+    await expect(character(page).locator('.pika-a-hit-area path')).toHaveCSS('cursor', 'grabbing');
     await page.mouse.move(center.x + 2, center.y - 2);
     expect(await character(page).getAttribute('data-dragging')).not.toBe('true');
     await page.mouse.up();
+    await expect(launcher(page)).toHaveCSS('cursor', 'grab');
     await expect(speech(page)).toBeVisible();
     await page.evaluate(() => window.pikaDemo.assistant.setMotion?.('off'));
     await page.evaluate(() => window.pikaDemo.assistant.setMotion?.('system'));
@@ -539,6 +542,107 @@ test.describe('Lively companion', () => {
     expect(await page.evaluate(() => history.length)).toBe(historyBefore);
     await expect(character(page).locator('dialog')).not.toHaveAttribute('open');
   });
+
+  test('supports mouse dragging after waking a sleeping character', async ({ page }) => {
+    await page.addInitScript(() => { Math.random = () => .5; });
+    await page.route('**/demo/assistant.config.json', async (route) => {
+      const response = await route.fetch();
+      const config = await response.json();
+      await route.fulfill({ response, json: { ...config, timings: { ...config.timings, sleepAfterMs: 100 } } });
+    });
+    await ready(page);
+    const box = await launcher(page).boundingBox();
+    const press = { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 };
+    await page.mouse.move(press.x, press.y);
+    await expect(character(page)).toHaveAttribute('data-animation', 'sleep');
+    await page.mouse.down();
+    await expect(character(page)).not.toHaveAttribute('data-motion', 'drag');
+    await page.mouse.move(press.x + 80, press.y - 180, { steps: 8 });
+    await expect(character(page)).toHaveAttribute('data-motion', 'drag');
+    await expect(character(page)).toHaveAttribute('data-animation', 'held');
+    const held = await launcher(page).boundingBox();
+    await page.mouse.move(press.x + 40, press.y - 220, { steps: 4 });
+    const moved = await launcher(page).boundingBox();
+    expect(moved!.x).toBeCloseTo(held!.x - 40, 0);
+    expect(moved!.y).toBeCloseTo(held!.y - 40, 0);
+    await page.mouse.up();
+    await expect(character(page)).toHaveAttribute('data-dragging', 'false');
+    await finishMotion(page);
+    await expect(character(page)).toHaveAttribute('data-motion', '');
+    await expectInsideViewport(page);
+  });
+
+  test('supports mouse dragging and clicking when the browser refuses pixel reads', async ({ page }) => {
+    await page.addInitScript(() => {
+      Math.random = () => .5;
+      let blockedReads = 0;
+      Object.defineProperty(window, 'pikaUnreadableReads', { get: () => blockedReads });
+      CanvasRenderingContext2D.prototype.getImageData = function () {
+        blockedReads++;
+        throw new DOMException('Blocked by image origin', 'SecurityError');
+      };
+    });
+    await ready(page);
+    await page.evaluate(async () => {
+      await window.pikaDemo.assistant.setMotion?.('off');
+      await window.pikaDemo.assistant.setMotion?.('system');
+      window.pikaDemo.assistant.setInteractionHold?.(true);
+    });
+    expect(await page.evaluate(() => Number(Reflect.get(window, 'pikaUnreadableReads')))).toBeGreaterThan(0);
+    await launcher(page).click();
+    await expect(speech(page)).toBeVisible();
+    const box = (await launcher(page).boundingBox())!;
+    const press = { x: box.x + box.width / 2, y: box.y + box.height * .65 };
+    await page.mouse.move(press.x, press.y); await page.mouse.down();
+    await page.mouse.move(press.x + 30, press.y - 160, { steps: 6 });
+    await expect(character(page)).toHaveAttribute('data-motion', 'drag');
+    await page.mouse.up(); await finishMotion(page);
+    await expectInsideViewport(page);
+  });
+
+  test('supports mouse dragging only from visible fur and tracks only a nearby cursor', async ({ page }) => {
+    await page.addInitScript(() => { Math.random = () => .5; });
+    await ready(page);
+    await page.evaluate(async () => {
+      await window.pikaDemo.assistant.setMotion?.('off');
+      await window.pikaDemo.assistant.setMotion?.('system');
+      window.pikaDemo.assistant.setInteractionHold?.(true);
+    });
+    const box = (await launcher(page).boundingBox())!;
+    const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    const manifest = await (await page.request.get('/assistant/1.0.0/atlas.json')).json();
+    await page.mouse.move(Math.max(0, center.x - box.width * .85), center.y);
+    await expect(character(page).locator('canvas')).toHaveAttribute('data-frame', String(manifest.poses.left));
+    await expect(page.locator('.companion-skills')).toBeHidden();
+    await page.mouse.move(center.x > 400 ? center.x - 400 : center.x + 400, center.y);
+    await expect(character(page).locator('canvas')).toHaveAttribute('data-frame', String(manifest.neutralFrame));
+    const air = { x: box.x + 4, y: center.y };
+    await page.evaluate((point) => {
+      const control = document.createElement('button');
+      control.id = 'under-transparent-fur';
+      Object.assign(control.style, { position: 'fixed', left: `${point.x - 3}px`, top: `${point.y - 3}px`,
+        width: '8px', height: '8px', padding: '0', zIndex: '99' });
+      control.addEventListener('click', () => { control.dataset.clicked = 'true'; });
+      document.body.append(control);
+    }, air);
+    await page.mouse.move(air.x, air.y);
+    await expect(page.locator('.companion-skills')).toBeHidden();
+    await page.mouse.click(air.x, air.y);
+    await expect(page.locator('#under-transparent-fur')).toHaveAttribute('data-clicked', 'true');
+    await page.mouse.down();
+    await page.mouse.move(air.x, air.y - 80, { steps: 4 });
+    await expect(character(page)).not.toHaveAttribute('data-motion', 'drag');
+    await expect(page.locator('.companion-skills')).toBeHidden();
+    await page.mouse.up();
+    await page.mouse.move(center.x, box.y + box.height * .65);
+    await expect(page.locator('.companion-skills')).toBeVisible();
+    await page.mouse.down();
+    await page.mouse.move(center.x + 30, center.y - 160, { steps: 6 });
+    await expect(character(page)).toHaveAttribute('data-motion', 'drag');
+    await page.mouse.up();
+    await finishMotion(page);
+    await page.evaluate(() => window.pikaDemo.assistant.setInteractionHold?.(false));
+  });
 });
 
 test.describe('Short landscape companion', () => {
@@ -555,8 +659,9 @@ test.describe('Short landscape companion', () => {
       await launcher(page).dispatchEvent('pointerdown',{
         ...pointer,buttons:1,clientX:box!.x+box!.width/2,clientY:box!.y+box!.height/2,
       });
-      await expect(character(page)).toHaveAttribute('data-motion','drag');
+      await expect(character(page)).not.toHaveAttribute('data-motion','drag');
       await launcher(page).dispatchEvent('pointermove',{ ...pointer,...target,buttons:1 });
+      await expect(character(page)).toHaveAttribute('data-motion','drag');
       await expect(character(page)).toHaveAttribute('data-dragging','true');
       await launcher(page).dispatchEvent('pointerup',{ ...pointer,...target,buttons:0 });
       await finishMotion(page);
@@ -637,6 +742,9 @@ test.describe('Compact companion', () => {
       type: 'touchStart',
       touchPoints: [{ ...center, id: 1 }],
     });
+    await page.waitForTimeout(3000);
+    await expect(character(page)).not.toHaveAttribute('data-motion', 'drag');
+    await expect(character(page)).toHaveAttribute('data-animation', 'static');
     for (let step = 1; step <= 8; step++) {
       await session.send('Input.dispatchTouchEvent', {
         type: 'touchMove',

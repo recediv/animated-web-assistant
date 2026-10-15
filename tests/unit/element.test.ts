@@ -13,6 +13,45 @@ afterEach(() => {
 });
 
 describe('speech visibility and character movement', () => {
+  it.each(['security', 'empty', 'short-data', 'no-context', 'context-error', 'no-reader'])(
+    'keeps a torso input target when the first hit-region update fails: %s', (failure) => {
+      const view = createAssistantElement();
+      const path = view.shadow.querySelector('.pika-a-hit-area path')!;
+      const fallback = path.getAttribute('d');
+      expect(fallback).toBeTruthy();
+      const context = { clearRect: vi.fn(), drawImage: vi.fn(),
+        ...(failure === 'no-reader' ? {} : { getImageData: vi.fn(() => {
+          if (failure === 'empty' || failure === 'short-data') return { data: new Uint8ClampedArray(failure === 'empty' ? 96 * 96 * 4 : 4) };
+          throw new DOMException('Blocked', 'SecurityError');
+        }) }) };
+      vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => {
+        if (failure === 'context-error') throw new Error('Context unavailable');
+        return failure === 'no-context' ? null : context as unknown as CanvasRenderingContext2D;
+      });
+      expect(() => view.updateHitRegion()).not.toThrow();
+      expect(path.getAttribute('d')).toBe(fallback);
+      view.destroy();
+    },
+  );
+
+  it('recovers from an unreadable first frame and keeps its last valid input outline after a later failure', () => {
+    const view = createAssistantElement();
+    const path = view.shadow.querySelector('.pika-a-hit-area path')!;
+    const fallback = path.getAttribute('d');
+    const data = new Uint8ClampedArray(96 * 96 * 4);
+    for (let y = 43; y < 75; y++) for (let x = 34; x < 62; x++) data[(y * 96 + x) * 4 + 3] = 255;
+    const getImageData = vi.fn(() => ({ data })).mockImplementationOnce(() => { throw new DOMException('Blocked', 'SecurityError'); });
+    const context = { clearRect: vi.fn(), drawImage: vi.fn(), getImageData };
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as unknown as CanvasRenderingContext2D);
+    view.updateHitRegion(); expect(path.getAttribute('d')).toBe(fallback);
+    view.updateHitRegion();
+    const outline = path.getAttribute('d');
+    expect(outline).toBeTruthy(); expect(outline).not.toBe(fallback);
+    getImageData.mockImplementationOnce(() => { throw new Error('Read failed'); });
+    view.updateHitRegion(); expect(path.getAttribute('d')).toBe(outline);
+    view.destroy();
+  });
+
   it.each([0, 20, 34, 80])('keeps moving feet and dragging inside safe edges with %i reserved pixels', async (reserved) => {
     const viewport = { offsetLeft: 17, offsetTop: 23, width: 390, height: 844 };
     const safe = { left: 24, right: 10, top: 20, bottom: 34 };

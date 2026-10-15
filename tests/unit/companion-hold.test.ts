@@ -23,6 +23,36 @@ beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-13T12:
 afterEach(() => { controllers.splice(0).forEach((controller) => controller.destroy()); vi.clearAllTimers(); vi.useRealTimers(); });
 
 describe('companion interaction hold', () => {
+  it.each(['pointer', 'menu'] as const)('keeps automatic actions paused until both holds end, releasing %s first', (first) => {
+    const { controller, hooks } = setup();
+    vi.advanceTimersByTime(200);
+    controller.setPointerHold(true); controller.setInteractionHold(true);
+    vi.advanceTimersByTime(12000);
+    if (first === 'pointer') controller.setPointerHold(false); else controller.setInteractionHold(false);
+    vi.advanceTimersByTime(12000);
+    expect(hooks.animate.mock.calls.every(([state]) => state === 'static')).toBe(true);
+    expect(hooks.motion).not.toHaveBeenCalled();
+    if (first === 'pointer') controller.setInteractionHold(false); else controller.setPointerHold(false);
+    vi.advanceTimersByTime(439); expect(controller.snapshot.animation).toBe('static');
+    vi.advanceTimersByTime(1); expect(controller.snapshot.animation).toBe('idle');
+  });
+
+  it('keeps the current quiet clip running while a press delays automatic and shop reactions', async () => {
+    const { controller, hooks } = setup();
+    const quiet = controller.performQuiet('guitar');
+    controller.setPointerHold(true);
+    const calls = hooks.animate.mock.calls.length;
+    controller.react('pointer:near'); controller.react('cart:error');
+    expect(controller.cart({ type: 'cart:added', id: 'during-press', quantity: 1, occurredAt: Date.now() })).toBe(false);
+    vi.advanceTimersByTime(20000);
+    expect(controller.snapshot.animation).toBe('guitar');
+    expect(hooks.animate).toHaveBeenCalledTimes(calls);
+    controller.finishAnimation(); await quiet;
+    expect(hooks.motion).not.toHaveBeenCalled();
+    controller.setPointerHold(false); vi.advanceTimersByTime(10000);
+    expect(hooks.motion).toHaveBeenCalledOnce();
+  });
+
   it('pauses automatic deadlines without hiding the character, then resumes their remaining time', () => {
     const { controller, hooks } = setup();
     vi.advanceTimersByTime(200); controller.setInteractionHold(true);

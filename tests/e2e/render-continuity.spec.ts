@@ -8,6 +8,7 @@ interface RenderSample {
   alphaPixels: number;
   visibleAlphaPixels: number;
   pixelDifference: number;
+  previousWeight: number;
   frame: string | undefined;
   sheet: string;
   mirrored: boolean;
@@ -28,6 +29,7 @@ interface RenderReport {
   samples: number;
   sheets: string[];
   mirroredSamples: number;
+  blendedSamples: number;
   sizes: string[];
   pageKeys: string[];
   rebases: number;
@@ -92,6 +94,19 @@ async function startProbe(page: Page): Promise<void> {
     const referenceContext = reference.getContext('2d')!;
     let expectedPixels: Uint8ClampedArray<ArrayBufferLike> | null = null;
     let expectedKey = '';
+    let previousLayer: HTMLCanvasElement | null = null;
+    let previousWeight = 0;
+    let previousId = 0;
+    const layerIds = new WeakMap<HTMLCanvasElement, number>();
+    const actualDrawImage = context.drawImage;
+    // Observe the blend source and alpha without trusting the rendered output.
+    // The new layer is still checked against the declared atlas crop/facing.
+    context.drawImage = function (image: CanvasImageSource, ...dimensions: number[]): void {
+      Reflect.apply(actualDrawImage, this, [image, ...dimensions]);
+      previousLayer = this.globalCompositeOperation === 'lighter' && image instanceof HTMLCanvasElement ? image : null;
+      previousWeight = previousLayer ? this.globalAlpha : 0;
+      if (previousLayer && !layerIds.has(previousLayer)) layerIds.set(previousLayer, ++previousId);
+    };
     let raf = 0;
     let step = 'after arrival';
     let previousBase = `${launcher.style.left}:${launcher.style.top}`;
@@ -103,6 +118,7 @@ async function startProbe(page: Page): Promise<void> {
       samples: 0,
       sheets: [],
       mirroredSamples: 0,
+      blendedSamples: 0,
       sizes: [],
       pageKeys: [],
       rebases: 0,
@@ -210,14 +226,17 @@ async function startProbe(page: Page): Promise<void> {
         const image = images.get(sheet);
         if (!atlas || !image || !Number.isInteger(frame)) reason ??= 'invalid sheet or frame';
         else {
-          const key = `${sheet}:${frame}:${mirrored}:${canvas.width}:${canvas.height}`;
+          const key = `${sheet}:${frame}:${mirrored}:${canvas.width}:${canvas.height}:${previousLayer ? layerIds.get(previousLayer) : 0}:${previousWeight}`;
           if (key !== expectedKey) {
             reference.width = canvas.width;
             reference.height = canvas.height;
+            referenceContext.save();
             if (mirrored) {
               referenceContext.translate(reference.width, 0);
               referenceContext.scale(-1, 1);
             }
+            referenceContext.globalCompositeOperation = 'copy';
+            referenceContext.globalAlpha = 1 - previousWeight;
             referenceContext.drawImage(
               image,
               (frame % atlas.columns) * manifest.cell.width,
@@ -229,6 +248,14 @@ async function startProbe(page: Page): Promise<void> {
               reference.width,
               reference.height,
             );
+            referenceContext.restore();
+            if (previousLayer) {
+              referenceContext.globalCompositeOperation = 'lighter';
+              referenceContext.globalAlpha = previousWeight;
+              referenceContext.drawImage(previousLayer, 0, 0, reference.width, reference.height);
+              referenceContext.globalCompositeOperation = 'source-over';
+              referenceContext.globalAlpha = 1;
+            }
             expectedPixels = referenceContext.getImageData(
               0,
               0,
@@ -254,6 +281,7 @@ async function startProbe(page: Page): Promise<void> {
         alphaPixels,
         visibleAlphaPixels,
         pixelDifference,
+        previousWeight,
         frame: canvas.dataset.frame,
         sheet,
         mirrored,
@@ -269,6 +297,7 @@ async function startProbe(page: Page): Promise<void> {
         ...(pagePush ? { pushContact, pushPanelEdge: panelEdge ? { left: panelEdge.left, right: panelEdge.right } : undefined } : {}),
       };
       report.samples++;
+      if (previousLayer) report.blendedSamples++;
       sheets.add(sheet);
       sizes.add(`${canvas.width}x${canvas.height}`);
       pageKeys.add(pageKey);
@@ -296,6 +325,7 @@ async function startProbe(page: Page): Promise<void> {
       },
       stop() {
         if (raf) cancelAnimationFrame(raf);
+        context.drawImage = actualDrawImage;
         report.sheets = [...sheets];
         report.sizes = [...sizes];
         report.pageKeys = [...pageKeys];
@@ -347,13 +377,19 @@ for (const profile of [
       });
       await page.emulateMedia({ reducedMotion: 'no-preference' });
       await ready(page);
+      await page.evaluate(async () => {
+        await window.pikaDemo.assistant.setMotion?.('off');
+        await window.pikaDemo.assistant.setMotion?.('system');
+        window.pikaDemo.assistant.setInteractionHold?.(true);
+      });
+      const manifest = await (await page.request.get('/assistant/1.0.0/atlas.json')).json() as AtlasManifest;
       await startProbe(page);
       let report: RenderReport;
       try {
-        await mark(page, 'main: greeting wave');
+        await mark(page, 'pet wink');
         await page.evaluate(() => window.pikaDemo.assistant.open());
-        await expect(character(page)).toHaveAttribute('data-animation', 'wave');
-        await expect(character(page).locator('canvas')).toHaveAttribute('data-sheet', 'main');
+        await expect(character(page)).toHaveAttribute('data-animation', 'wink');
+        await expect(character(page).locator('canvas')).toHaveAttribute('data-sheet', manifest.clips.wink!.sheet ?? 'main');
 
         await mark(page, 'personality: walk left');
         await page.evaluate(() => window.pikaDemo.assistant.perform!('stroll'));
@@ -402,12 +438,12 @@ for (const profile of [
         await finishMotion(page);
         await mark(page, 'main after all transitions');
         await page.evaluate(() => window.pikaDemo.assistant.open());
-        await expect(character(page).locator('canvas')).toHaveAttribute('data-sheet', 'main');
         await page.waitForFunction(
           () =>
             document.querySelector<HTMLElement>('anime-shop-assistant')?.dataset.animation ===
             'static',
         );
+        await expect(character(page).locator('canvas')).toHaveAttribute('data-sheet', 'main');
       } finally {
         report = await saveReport(page, testInfo);
       }
@@ -416,6 +452,7 @@ for (const profile of [
         100,
       );
       expect(report.sheets).toEqual(expect.arrayContaining(['main', 'personality']));
+      expect(report.blendedSamples, 'mixed transition pixels were compared with both layers').toBeGreaterThan(0);
       expect(
         report.intentionalOutsideSamples,
         'complete intended hiding still retains nonempty reference-matching canvas pixels',
@@ -437,5 +474,46 @@ for (const profile of [
       ).toBeGreaterThanOrEqual(3);
       expect(report.rebases, 'CSS position bases changed while sampling').toBeGreaterThan(1);
     });
+  });
+}
+
+for (const damage of ['empty', 'damaged'] as const) {
+  test(`detects ${damage} pixels during a blended transition`, async ({ page }, testInfo) => {
+    await page.addInitScript(() => { Math.random = () => .5; });
+    await ready(page);
+    await page.evaluate(async () => {
+      await window.pikaDemo.assistant.setMotion?.('off');
+      await window.pikaDemo.assistant.setMotion?.('system');
+      window.pikaDemo.assistant.setInteractionHold?.(true);
+    });
+    await startProbe(page);
+    await page.evaluate((failure) => {
+      const host = document.querySelector<HTMLElement>('anime-shop-assistant')!;
+      const launcher = host.shadowRoot!.querySelector<HTMLButtonElement>('.pika-a-launcher')!;
+      const canvas = host.shadowRoot!.querySelector('canvas')!;
+      const context = canvas.getContext('2d')!;
+      const draw = context.drawImage;
+      context.drawImage = function (image: CanvasImageSource, ...dimensions: number[]): void {
+        Reflect.apply(draw, this, [image, ...dimensions]);
+        if (this.globalCompositeOperation !== 'lighter') return;
+        this.save();
+        this.globalAlpha = 1;
+        this.globalCompositeOperation = 'copy';
+        if (failure === 'empty') this.clearRect(0, 0, canvas.width, canvas.height);
+        else { this.fillStyle = '#ff00ff'; this.fillRect(0, 0, canvas.width, canvas.height); }
+        this.restore();
+      };
+      const box = launcher.getBoundingClientRect();
+      const pointer = (type: string, y: number) => launcher.dispatchEvent(new PointerEvent(type, {
+        bubbles: true, pointerId: 7, isPrimary: true, button: 0, clientX: box.x + box.width / 2, clientY: y,
+      }));
+      pointer('pointerdown', box.y + box.height / 2);
+      pointer('pointermove', box.y + box.height / 2 - 160);
+    }, damage);
+    await page.waitForTimeout(200);
+    const report = await saveReport(page, testInfo);
+    expect(report.firstFailure).not.toBeNull();
+    expect(report.firstFailure!.previousWeight).toBeGreaterThan(0);
+    expect(report.firstFailure!.reason).toContain(damage === 'empty' ? 'no character pixels' : 'pixels differ');
   });
 }

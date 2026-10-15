@@ -249,6 +249,7 @@ async function initializeCompanionSkills(): Promise<void> {
     setInteractionHold: (hold) => assistant?.setInteractionHold?.(hold),
     isInteractionBlocked: () => demoDestroyed || Boolean(pageEntry) || !assistant,
     lookAt: (point) => assistant?.lookAt?.(point),
+    onPlacement: (region) => assistant?.setSpeechExclusion?.(region),
     scenes: companionScenes.filter((scene) =>
       ['wiggle', 'sit', 'ears', 'scratch', 'stretch', 'nose', 'guitar'].includes(scene.name),
     ),

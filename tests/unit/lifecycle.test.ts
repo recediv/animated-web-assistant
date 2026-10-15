@@ -721,7 +721,9 @@ describe('initialization and lifecycle boundaries', () => {
     animationCalls.play.mockClear();
     await instance.open();
     expect(document.activeElement).toBe(input);
-    expect(animationCalls.play).toHaveBeenCalledWith('wave', 1);
+    expect(animationCalls.play).not.toHaveBeenCalled();
+    const view = vi.mocked(createAssistantElement).mock.results.at(-1)!.value;
+    expect(view.render.mock.calls.at(-1)![0].greetingVisible).toBe(true);
     expect(adapter.subscriberCount).toBe(1);
   });
 
@@ -855,17 +857,19 @@ describe('initialization and lifecycle boundaries', () => {
     expect(adapter.subscriberCount).toBe(0);
   });
 
-  it('a lively character responds to a compact tap without opening a dialog or history overlay', async () => {
+  it('a lively character responds to a compact tap after arrival without opening a dialog or history overlay', async () => {
     compact = true;
+    const frames = manualFrames();
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ ...config, behavior: 'lively' }) })));
     const adapter = createDemoAdapter();
     adapter.enterOverlay = vi.fn(async () => ({ close: async () => {} }));
     instance = await init({ configUrl: '/demo/assistant.config.json', adapter });
+    frames.draw(5000);
     await instance.open();
     const view = vi.mocked(createAssistantElement).mock.results.at(-1)?.value;
     expect(view.dialog.open).toBe(false);
     expect(adapter.enterOverlay).not.toHaveBeenCalled();
-    expect(animationCalls.play).toHaveBeenCalledWith('wave', 1);
+    expect(animationCalls.play).toHaveBeenCalledWith('wink', 1);
     expect(document.documentElement.classList.contains('anime-assistant-scroll-locked')).toBe(false);
   });
 
@@ -1009,6 +1013,111 @@ describe('initialization and lifecycle boundaries', () => {
     pointer('pointermove', 100, 100);
     expect(view.launcher.style.transform).toBe('');
   });
+
+  it.each(['mouse', 'touch'])('retains a stationary %s press past automatic deadlines and then starts dragging', async (pointerType) => {
+    const frames = manualFrames();
+    vi.spyOn(Math, 'random').mockReturnValue(.5);
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ ...config, behavior: 'lively' }) })));
+    instance = await init({ configUrl: '/demo/assistant.config.json',
+      adapter: createDemoAdapter({ context: { permissions: { persistentSettings: false } } }) });
+    const view = vi.mocked(createAssistantElement).mock.results.at(-1)!.value;
+    frames.draw(5000);
+    view.launcher.setPointerCapture = vi.fn(); view.launcher.releasePointerCapture = vi.fn();
+    const pointer = (type: string, x = 800, y = 600) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.assign(event, { pointerId: 7, pointerType, clientX: x, clientY: y, button: 0, isPrimary: true });
+      view.launcher.dispatchEvent(event);
+    };
+    pointer('pointerdown');
+    const played = animationCalls.play.mock.calls.length;
+    instance.setInteractionHold!(true); instance.setInteractionHold!(false);
+    vi.advanceTimersByTime(10000);
+    expect(animationCalls.play).toHaveBeenCalledTimes(played);
+    expect(view.launcher.releasePointerCapture).not.toHaveBeenCalled();
+    expect(view.dataset.motion).toBe('');
+    pointer('pointermove', 840, 420);
+    expect(view.dataset.motion).toBe('drag'); expect(view.dataset.dragging).toBe('true');
+    pointer('pointerup', 840, 420);
+    expect(view.launcher.releasePointerCapture).toHaveBeenCalledExactlyOnceWith(7);
+    frames.draw(7000);
+    expect(view.dataset.motion).toBe(''); expect(frames.pending).toBe(0);
+  });
+
+  it.each(['pointerup', 'pointercancel', 'lostpointercapture', 'escape', 'off', 'blocker', 'destroy'])(
+    'releases a pending stationary press on %s without a stuck hold or capture', async (release) => {
+      const frames = manualFrames();
+      vi.spyOn(Math, 'random').mockReturnValue(.5);
+      vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ ...config, behavior: 'lively' }) })));
+      const adapter = createDemoAdapter({ context: { permissions: { persistentSettings: false } } });
+      instance = await init({ configUrl: '/demo/assistant.config.json', adapter });
+      const view = vi.mocked(createAssistantElement).mock.results.at(-1)!.value;
+      frames.draw(5000);
+      view.launcher.setPointerCapture = vi.fn(); view.launcher.releasePointerCapture = vi.fn();
+      const pointer = (type: string) => {
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        Object.assign(event, { pointerId: 7, pointerType: 'touch', clientX: 800, clientY: 600, button: 0, isPrimary: true });
+        view.launcher.dispatchEvent(event);
+      };
+      pointer('pointerdown'); vi.advanceTimersByTime(1000);
+      expect(view.launcher.releasePointerCapture).not.toHaveBeenCalled();
+      if (release === 'escape') document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      else if (release === 'off') await instance.setMotion!('off');
+      else if (release === 'blocker') adapter.update({ ui: { blockers: ['shop'] } });
+      else if (release === 'destroy') await instance.destroy();
+      else pointer(release);
+      expect(view.launcher.releasePointerCapture).toHaveBeenCalledExactlyOnceWith(7);
+      expect(view.dataset.motion).toBe(''); expect(frames.pending).toBe(0);
+      if (!['off', 'blocker', 'destroy'].includes(release)) {
+        const played = animationCalls.play.mock.calls.length;
+        vi.advanceTimersByTime(1000);
+        expect(animationCalls.play.mock.calls.length).toBeGreaterThan(played);
+      }
+    },
+  );
+
+  it.each(['pointerup', 'pointercancel'])(
+    'keeps the waking drag captured through movement and releases it on %s', async (release) => {
+      const frames = manualFrames();
+      vi.spyOn(Math, 'random').mockReturnValue(.5);
+      vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({
+        ...config, behavior: 'lively', timings: { ...config.timings, sleepAfterMs: 100 },
+      }) })));
+      instance = await init({ configUrl: '/demo/assistant.config.json',
+        adapter: createDemoAdapter({ context: { permissions: { persistentSettings: false } } }) });
+      const view = vi.mocked(createAssistantElement).mock.results.at(-1)!.value;
+      frames.draw(5000);
+      vi.advanceTimersByTime(100);
+      expect(view.render.mock.calls.at(-1)![0].sleeping).toBe(true);
+      view.launcher.setPointerCapture = vi.fn();
+      view.launcher.releasePointerCapture = vi.fn();
+      const pointer = (type: string, x: number, y: number) => {
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        Object.assign(event, { pointerId: 7, clientX: x, clientY: y, button: 0, isPrimary: true });
+        view.launcher.dispatchEvent(event);
+      };
+      pointer('pointerdown', 800, 600);
+      expect(view.render.mock.calls.at(-1)![0].sleeping).toBe(true);
+      pointer('pointermove', 720, 420);
+      expect(view.render.mock.calls.at(-1)![0].sleeping).toBe(false);
+      expect(view.dataset.dragging).toBe('true');
+      expect(view.dataset.motion).toBe('drag');
+      expect(view.launcher.setPointerCapture).toHaveBeenCalledExactlyOnceWith(7);
+      expect(view.launcher.releasePointerCapture).not.toHaveBeenCalled();
+      const held = view.setMotionOffset.mock.calls.at(-1)![0];
+      pointer('pointermove', 760, 380);
+      expect(view.setMotionOffset.mock.calls.at(-1)![0]).toEqual({ x: held.x + 40, y: held.y - 40 });
+      pointer(release, 760, 380);
+      expect(view.launcher.releasePointerCapture).toHaveBeenCalledExactlyOnceWith(7);
+      expect(view.dataset.dragging).toBe('false');
+      frames.draw(7000);
+      expect(view.dataset.motion).toBe('');
+      expect(frames.pending).toBe(0);
+      const landed = view.setMotionOffset.mock.calls.at(-1)![0];
+      expect(580 + landed.y + 88).toBe(700);
+      pointer('pointermove', 100, 100);
+      expect(view.setMotionOffset.mock.calls.at(-1)![0]).toEqual(landed);
+    },
+  );
 
   it('finishes an airborne flip through a large scroll burst without a suspended recovery', async () => {
     const frames = manualFrames();

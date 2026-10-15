@@ -703,18 +703,32 @@ describe('dragging, finite physics and varied entrances', () => {
 
   it('deploys a readable parachute only for a sufficiently high release', async () => {
     const { motion, moving } = create();
-    motion.beginDrag(); motion.dragTo({ x: -200, y: -320 });
+    motion.beginDrag(); motion.dragTo({ x: -200, y: -480 });
     const dropping = motion.release({ parachute: true });
-    frame(240);
+    expect(moving.mock.calls.map(([phase]) => phase)).toEqual(['drag', 'parachute']);
+    frame(1100);
     expect(motion.offset.y).toBe(-240);
-    frame(900);
-    expect(motion.offset.y).toBeCloseTo(-121.2);
-    frame(1600);
+    frame(2200);
     expect(motion.offset.y).toBe(0);
     expect(frames.size).toBe(0);
     frame(4000); await dropping;
-    expect(moving.mock.calls.map(([phase]) => phase)).toEqual(['drag', 'fall', 'parachute', 'land', null]);
+    expect(moving.mock.calls.map(([phase]) => phase)).toEqual(['drag', 'parachute', 'land', null]);
     expect(motion.offset).toEqual({ x: -200, y: 0 });
+  });
+
+  it.each([64, 96])('chooses the descent immediately at the four-height boundary for a %spx actor', async (size) => {
+    const { motion, moving } = create(size);
+    for (const extra of [-1, 0, 1]) {
+      moving.mockClear();
+      motion.beginDrag(); motion.dragTo({ x: -200, y: -(size * 4 + extra) });
+      const dropping = motion.release({ parachute: true });
+      const descent = extra > 0 ? 'parachute' : 'fall';
+      expect(moving.mock.calls.map(([phase]) => phase)).toEqual(['drag', descent]);
+      frame(time + 4000); await dropping;
+      expect(moving.mock.calls.map(([phase]) => phase)).toEqual(['drag', descent, 'land', null]);
+      expect(motion.offset.y).toBe(0);
+      expect(frames.size).toBe(0);
+    }
   });
 
   it('uses a short ordinary landing for a release near the ground', async () => {
@@ -761,7 +775,7 @@ describe('dragging, finite physics and varied entrances', () => {
     ['land', 650, {}],
   ] as const)('cancels during %s, resolving the promise and preserving the drawn coordinates', async (phase, at, options) => {
     const { motion, moving } = create();
-    motion.beginDrag(); motion.dragTo({ x: -200, y: -320 });
+    motion.beginDrag(); motion.dragTo({ x: -200, y: phase === 'parachute' ? -480 : -320 });
     const dropping = motion.release(options);
     frame(at);
     expect(moving.mock.calls.at(-1)?.[0]).toBe(phase);

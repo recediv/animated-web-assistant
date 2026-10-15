@@ -1,7 +1,7 @@
 import type { AssistantConfig, AssistantPreferences } from '../config/types';
 import type { PanelScreen, ScenarioSnapshot } from '../core/scenarios';
 import { calculatePlacement, visibleViewport, type Placement } from '../positioning/viewport';
-import { calculateSpeechPlacement } from '../positioning/speech';
+import { calculateSpeechPlacement, type SpeechExclusion } from '../positioning/speech';
 
 const paths: Record<string, string> = {
   close: 'M6 6l12 12M18 6L6 18', back: 'M15 5l-7 7 7 7', chevron: 'M9 5l7 7-7 7',
@@ -34,7 +34,7 @@ function parachute(): SVGSVGElement {
   svg.setAttribute('aria-hidden', 'true');
   svg.setAttribute('focusable', 'false');
   const shapes: [string, string][] = [
-    ['M6 60 L48 174 M62 60 L48 174 M128 60 L148 174 M186 60 L148 174', 'none'],
+    ['M6 60 L48 190 M62 60 L48 190 M128 60 L144 190 M186 60 L144 190', 'none'],
     ['M4 60 Q15 6 96 6 Q177 6 188 60 Q170 48 155 60 Q140 48 125 60 Q110 48 96 60 Q81 48 66 60 Q49 48 34 60 Q18 48 4 60Z', '#ffe67b'],
     ['M4 60 Q15 6 96 6 Q55 16 34 60 Q18 48 4 60Z', '#f18770'],
     ['M66 60 Q71 21 96 6 Q121 21 125 60 Q110 48 96 60 Q81 48 66 60Z', '#fff8db'],
@@ -87,6 +87,8 @@ export class AssistantElement extends HTMLElement {
   private motion: string | null = null;
   private compact = false;
   private greetingHeight = 96;
+  private speechExclusion: SpeechExclusion | null = null;
+  private bottomReserved = 0;
   private actions: ViewActions | null = null;
   private config: AssistantConfig | null = null;
   private abort = new AbortController();
@@ -94,6 +96,9 @@ export class AssistantElement extends HTMLElement {
   private dragDistance = 0;
   private cartButton: HTMLButtonElement | null = null;
   private motionButton: HTMLButtonElement | null = null;
+  private hitSurface = node('canvas');
+  private hitContext: CanvasRenderingContext2D | null = null;
+  private hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 
   constructor() {
     super();
@@ -112,12 +117,48 @@ export class AssistantElement extends HTMLElement {
     const titleBox = node('div');
     titleBox.append(node('span', 'pika-a-eyebrow', 'МОХЛИК · СПУТНИК'), this.heading);
     this.header.append(this.back, titleBox, this.closeButton);
-    this.launcher.append(parachute(), this.poster, this.canvas);
+    const hitArea = document.createElementNS(this.hitPath.namespaceURI, 'svg');
+    hitArea.setAttribute('viewBox', '0 0 96 96');
+    hitArea.setAttribute('class', 'pika-a-hit-area');
+    hitArea.setAttribute('aria-hidden', 'true');
+    hitArea.setAttribute('focusable', 'false');
+    // A small torso target remains usable before the first draw, or if the
+    // browser cannot read pixels. Transparent sprite margins stay outside it.
+    this.hitPath.setAttribute('d', 'M48 43a14 16 0 1 0 0 32a14 16 0 1 0 0 -32Z');
+    hitArea.append(this.hitPath);
+    this.launcher.append(parachute(), this.poster, this.canvas, hitArea);
     this.dialog.append(this.grip, this.header, this.body);
     this.root.append(this.launcher, this.dialog, this.greeting, this.safe);
     this.shadow.append(this.root);
     this.launcher.hidden = true;
     this.greeting.hidden = true;
+  }
+
+  updateHitRegion(): void {
+    // Only this invisible input surface follows the opaque sprite pixels. The
+    // artwork stays unclipped, including the ears, tail and airborne poses.
+    try {
+      if (!this.hitContext) {
+        this.hitSurface.width = this.hitSurface.height = 96;
+        this.hitContext = this.hitSurface.getContext('2d', { willReadFrequently: true });
+      }
+      const context = this.hitContext;
+      if (!context?.getImageData) return;
+      context.clearRect(0, 0, 96, 96);
+      context.drawImage(this.canvas, 0, 0, 96, 96);
+      const { data } = context.getImageData(0, 0, 96, 96);
+      if (data.length !== 96 * 96 * 4) return;
+      let path = '';
+      for (let y = 0; y < 96; y++) {
+        for (let x = 0; x < 96;) {
+          if (data[(y * 96 + x) * 4 + 3]! < 32) { x++; continue; }
+          const start = x++;
+          while (x < 96 && data[(y * 96 + x) * 4 + 3]! >= 32) x++;
+          path += `M${start} ${y}H${x}V${y + 1}H${start}Z`;
+        }
+      }
+      if (path && this.hitPath.getAttribute('d') !== path) this.hitPath.setAttribute('d', path);
+    } catch { /* Keep the last readable outline or the initial torso target. */ }
   }
 
   async setup(config: AssistantConfig, actions: ViewActions): Promise<boolean> {
@@ -249,6 +290,7 @@ export class AssistantElement extends HTMLElement {
   }
 
   position(reserved: number, side: 'left' | 'right'): Placement {
+    this.bottomReserved = reserved;
     const computed = getComputedStyle(this.safe);
     const safe = {
       top: parseFloat(computed.paddingTop) || 0, right: parseFloat(computed.paddingRight) || 0,
@@ -281,10 +323,13 @@ export class AssistantElement extends HTMLElement {
   }
   destroy(): void { this.abort.abort(); this.close(); this.remove(); }
 
-  setMotionOffset(offset: Readonly<{ x: number; y: number }>): void {
+  setSpeechExclusion(region: SpeechExclusion | null): void { this.speechExclusion = region; }
+
+  setMotionOffset(offset: Readonly<{ x: number; y: number }>): boolean {
     // Runtime repositions speech when shown; skip layout while hidden.
-    if (this.greeting.hidden) return;
+    if (this.greeting.hidden) return true;
     const viewport = visibleViewport();
+    viewport.height = Math.max(0, viewport.height - this.bottomReserved);
     const left = parseFloat(this.greeting.style.left) || 0;
     const top = parseFloat(this.greeting.style.top) || 0;
     const width = Math.min(252, Math.max(0, viewport.width - 48));
@@ -292,9 +337,10 @@ export class AssistantElement extends HTMLElement {
       left: (parseFloat(this.launcher.style.left) || 0) + offset.x,
       top: (parseFloat(this.launcher.style.top) || 0) + offset.y,
       size: this.compact ? 64 : 96,
-    }, { width, height: this.greetingHeight }, this.launcher.dataset.motion === 'parachute', left + offset.x);
+    }, { width, height: this.greetingHeight }, this.launcher.dataset.motion === 'parachute', left + offset.x, this.speechExclusion);
     this.greeting.style.visibility = placement.visible ? '' : 'hidden';
     this.greeting.style.transform = `translate3d(${placement.left - left}px, ${placement.top + this.greetingHeight - top}px, 0) translateY(-100%)`;
+    return placement.visible;
   }
 
   private renderScreen(screen: PanelScreen, count: number | null, preferences: AssistantPreferences, reduced: boolean): void {
